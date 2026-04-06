@@ -1,0 +1,1588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Visions Studio</title>
+    <link rel="icon" type="image/png" href="https://file.garden/ZoJwS5NTJ2m5IEiz/vision-iercnugl.png">
+    <link rel="apple-touch-icon" href="https://file.garden/ZoJwS5NTJ2m5IEiz/vision-iercnugl.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Visions">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0b0b11">
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg:      #0b0b11;
+            --surface: #101017;
+            --surf2:   #16161e;
+            --surf3:   #1c1c26;
+            --border:  rgba(255,255,255,0.055);
+            --border2: rgba(255,255,255,0.09);
+            --purple:  #8b5cf6;
+            --pink:    #d946a8;
+            --accent:  #ff0055;
+            --text:    #e8e8f0;
+            --text2:   #7a7a90;
+            --text3:   #3e3e55;
+            --ease:    cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        input, textarea, select {
+            user-select: text;
+            -webkit-user-select: text;
+        }
+        img {
+            -webkit-user-drag: none;
+            user-drag: none;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Figtree', sans-serif;
+            font-size: 14px;
+            overflow: hidden;
+            line-height: 1.5;
+        }
+
+        ::-webkit-scrollbar { width: 3px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--surf3); border-radius: 99px; }
+
+        .app { display: flex; height: 100vh; width: 100vw; }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: 276px;
+            flex-shrink: 0;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-shadow: 1px 0 0 var(--border);
+        }
+
+        .sidebar-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 18px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .sidebar-foot {
+            padding: 14px 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: var(--surface);
+        }
+
+        .wordmark {
+            font-family: 'Sora', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            background: linear-gradient(100deg, var(--purple) 30%, var(--pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* ── Fields ── */
+        .field { display: flex; flex-direction: column; gap: 5px; }
+
+        .label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text2);
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        /* ── Inputs ── */
+        .inp {
+            background: var(--surf2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Figtree', sans-serif;
+            font-size: 13px;
+            padding: 0 11px;
+            height: 38px;
+            width: 100%;
+            transition: border-color 0.18s, background 0.18s;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        .inp:focus {
+            outline: none;
+            border-color: rgba(139,92,246,0.5);
+            background: var(--surf3);
+        }
+        .inp::placeholder { color: var(--text3); }
+        select.inp { cursor: pointer; }
+
+        textarea.inp {
+            height: 128px;
+            padding: 10px 11px;
+            resize: none;
+            line-height: 1.55;
+        }
+
+        .inp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+
+        /* ── Notices ── */
+        .flash-warn {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 10px;
+            background: rgba(234,179,8,0.06);
+            border: 1px solid rgba(234,179,8,0.15);
+            border-radius: 7px;
+            font-size: 11.5px;
+            color: rgba(234,179,8,0.8);
+            margin-top: 6px;
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            border: none;
+            cursor: pointer;
+            font-family: 'Figtree', sans-serif;
+            font-weight: 600;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: opacity 0.15s, background 0.15s, transform 0.1s var(--ease);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .btn:active:not(:disabled) { transform: scale(0.975); }
+
+        .btn-primary {
+            background: var(--purple);
+            color: #fff;
+            height: 40px;
+            width: 100%;
+            letter-spacing: 0.01em;
+        }
+        .btn-primary:hover:not(:disabled) { background: #7c4ef0; }
+        .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        .btn-stop {
+            background: var(--accent);
+            color: #fff;
+            height: 40px;
+            padding: 0 14px;
+            flex-shrink: 0;
+            font-size: 13px;
+        }
+        .btn-stop:hover { opacity: 0.85; }
+
+        .btn-ghost {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            color: var(--text2);
+            border: 1px solid var(--border2);
+            padding: 0 13px;
+            height: 34px;
+            font-size: 13px;
+            font-family: 'Figtree', sans-serif;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, transform 0.1s var(--ease);
+            gap: 4px;
+        }
+        .btn-ghost:hover { background: var(--surf2); color: var(--text); }
+        .btn-ghost:active { transform: scale(0.975); }
+
+        .btn-danger {
+            background: var(--accent);
+            color: #fff;
+            padding: 0 14px;
+            height: 34px;
+            font-size: 13px;
+        }
+        .btn-danger:hover { opacity: 0.85; }
+
+        .btn-row { display: flex; gap: 8px; }
+        .btn-row .btn-primary { flex: 1; }
+
+        /* ── Error ── */
+        .error-box {
+            padding: 10px 12px;
+            background: rgba(255,0,85,0.06);
+            border: 1px solid rgba(255,0,85,0.18);
+            border-radius: 8px;
+        }
+        .error-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 2px;
+        }
+        .error-detail {
+            font-size: 12px;
+            color: rgba(255,80,120,0.8);
+            line-height: 1.4;
+        }
+
+        /* ── Main ── */
+        .main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 26px 28px;
+            height: 100vh;
+        }
+
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .page-title {
+            font-family: 'Sora', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .page-sub {
+            font-size: 12px;
+            color: var(--text3);
+            margin-top: 3px;
+        }
+
+        /* ── Gallery ── */
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            touch-action: auto;
+        }
+
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .img-card {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            background: var(--surf2);
+            transition: border-color 0.2s, transform 0.22s var(--ease), box-shadow 0.22s var(--ease);
+            animation: cardIn 0.28s var(--ease) both;
+        }
+        .img-card:hover {
+            border-color: rgba(139,92,246,0.32);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.2);
+            will-change: transform;
+        }
+        .img-card.selected {
+            border-color: var(--purple);
+            box-shadow: 0 0 0 2px rgba(139,92,246,0.22);
+        }
+        .img-card.selected:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 0 2px rgba(139,92,246,0.22), 0 10px 30px rgba(0,0,0,0.35);
+        }
+
+        .img-card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; display: block; }
+
+        .card-overlay {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transition: opacity 0.18s;
+        }
+        .img-card:hover .card-overlay,
+        .img-card.selected .card-overlay { opacity: 1; }
+
+        .card-top {
+            position: absolute;
+            top: 8px; left: 8px; right: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .check {
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+            background: rgba(0,0,0,0.7);
+            border: 1.5px solid rgba(255,255,255,0.18);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, transform 0.12s var(--ease);
+        }
+        .check:active { transform: scale(0.88); }
+        .img-card.selected .check { background: var(--purple); border-color: var(--purple); }
+
+        .del-btn {
+            background: rgba(0,0,0,0.72);
+            border: none;
+            color: rgba(255,255,255,0.7);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Figtree', sans-serif;
+            transition: background 0.15s, color 0.15s;
+        }
+        .del-btn:hover { background: var(--accent); color: #fff; }
+
+        .download-btn {
+            background: rgba(139,92,246,0.15);
+            color: rgba(180,150,255,0.95);
+            padding: 0 14px;
+            height: 34px;
+            font-size: 13px;
+            border: 1px solid rgba(139,92,246,0.25);
+            cursor: pointer;
+            font-family: 'Figtree', sans-serif;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: background 0.15s, color 0.15s;
+        }
+        .download-btn:hover { background: rgba(139,92,246,0.25); color: #fff; }
+
+        .prompt-fade {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            padding: 32px 10px 10px;
+            background: linear-gradient(transparent, rgba(11,11,17,0.92));
+            pointer-events: none;
+        }
+        .prompt-fade p {
+            font-size: 11px;
+            color: rgba(255,255,255,0.45);
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* ── Empty ── */
+        .empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 80px 24px;
+            text-align: center;
+        }
+        .empty-icon {
+            width: 44px; height: 44px;
+            border-radius: 12px;
+            background: var(--surf2);
+            border: 1px solid var(--border2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            margin-bottom: 4px;
+            color: var(--text3);
+        }
+        .empty p   { font-size: 14px; font-weight: 600; color: var(--text2); }
+        .empty span { font-size: 12px; color: var(--text3); }
+
+        /* ── Viewer ── */
+        @keyframes viewerIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+        @keyframes viewerImgIn {
+            from { opacity: 0; transform: scale(0.97); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+
+        .viewer {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            background: rgba(7,7,12,0.97);
+            backdrop-filter: blur(24px);
+            display: flex;
+            flex-direction: column;
+            padding: 20px 24px;
+            gap: 14px;
+            animation: viewerIn 0.2s ease both;
+            will-change: opacity;
+        }
+        .viewer-top { display: flex; justify-content: space-between; align-items: center; }
+
+        .viewer-back {
+            background: var(--surf2);
+            border: 1px solid var(--border2);
+            color: var(--text2);
+            border-radius: 8px;
+            padding: 0 14px;
+            height: 36px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Figtree', sans-serif;
+            transition: color 0.15s, background 0.15s;
+        }
+        .viewer-back:hover { color: var(--text); background: var(--surf3); }
+
+        .viewer-dl {
+            background: var(--purple);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 0 18px;
+            height: 36px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Figtree', sans-serif;
+            transition: background 0.15s, transform 0.1s var(--ease);
+        }
+        .viewer-dl:hover { background: #7c4ef0; }
+        .viewer-dl:active { transform: scale(0.97); }
+
+        .viewer-img {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .viewer-img img {
+            max-height: 100%;
+            max-width: 100%;
+            object-fit: contain;
+            border-radius: 10px;
+            animation: viewerImgIn 0.28s var(--ease) both;
+        }
+        .viewer-prompt {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text3);
+            max-width: 560px;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+
+        /* ── Confirm modal ── */
+        @keyframes overlayIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: translateY(12px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            animation: overlayIn 0.18s ease both;
+        }
+        .modal {
+            background: var(--surf2);
+            border: 1px solid var(--border2);
+            border-radius: 14px;
+            padding: 24px;
+            max-width: 340px;
+            width: 100%;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+            animation: modalIn 0.22s var(--ease) both;
+        }
+        .modal-title {
+            font-family: 'Sora', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .modal-body {
+            font-size: 13px;
+            color: var(--text2);
+            line-height: 1.55;
+            margin-bottom: 20px;
+        }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+        /* ── Pulse ── */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.45; }
+        }
+        .pulse-text { animation: pulse 1.8s ease-in-out infinite; }
+
+        .faded { opacity: 0.28; pointer-events: none; }
+
+        /* ── Reference images ── */
+        .ref-drop {
+            border: 1.5px dashed var(--border2);
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: border-color 0.18s, background 0.18s;
+            text-align: center;
+        }
+        .ref-drop:hover { border-color: rgba(139,92,246,0.4); background: rgba(139,92,246,0.04); }
+        .ref-drop-label {
+            font-size: 12px;
+            color: var(--text3);
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .ref-thumbs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .ref-thumb {
+            position: relative;
+            width: 52px;
+            height: 52px;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border2);
+            flex-shrink: 0;
+            transition: transform 0.15s var(--ease);
+        }
+        .ref-thumb:hover { transform: scale(1.04); }
+        .ref-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .ref-thumb-rm {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.65);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.15s;
+            cursor: pointer;
+            border: none;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            width: 100%;
+        }
+        .ref-thumb:hover .ref-thumb-rm { opacity: 1; }
+
+        /* ── Tab bar (mobile only) ── */
+        .tab-bar { display: none; }
+
+        /* ── Mobile ── */
+        @media (max-width: 640px) {
+            body { overflow: hidden; }
+
+            .app { flex-direction: column; height: 100dvh; }
+
+            .sidebar {
+                width: 100%;
+                height: calc(100dvh - 56px);
+                border-right: none;
+                display: none;
+            }
+            .sidebar.tab-active { display: flex; }
+
+            .main {
+                height: calc(100dvh - 56px);
+                padding: 16px;
+                display: none;
+            }
+            .main.tab-active { display: block; }
+
+            .sidebar-body { padding: 16px 14px; gap: 14px; }
+            .sidebar-foot  { padding: 12px 14px; }
+
+            /* always show card actions on touch */
+            .card-overlay { opacity: 1; }
+            .prompt-fade  { display: none; }
+
+            .gallery { grid-template-columns: 1fr 1fr; gap: 8px; }
+            .main-header { margin-bottom: 14px; }
+
+            .tab-bar {
+                display: flex;
+                height: 56px;
+                background: var(--surface);
+                border-top: 1px solid var(--border);
+                flex-shrink: 0;
+            }
+
+            .tab-btn {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 3px;
+                border: none;
+                background: transparent;
+                color: var(--text3);
+                font-family: 'Figtree', sans-serif;
+                font-size: 10px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: color 0.15s;
+                letter-spacing: 0.03em;
+            }
+            .tab-btn.active { color: var(--purple); }
+
+            .check   { width: 28px; height: 28px; }
+            .del-btn { padding: 5px 10px; font-size: 12px; }
+
+            .viewer { padding: 14px 16px; gap: 12px; }
+
+            /* ref thumbs: always show remove on touch */
+            .ref-thumb-rm { opacity: 1; background: rgba(0,0,0,0.5); }
+
+            /* no hover lift on mobile */
+            .img-card:hover { transform: none; box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // ── Model registry ──────────────────────────────────────────
+    const MODELS = [
+        { id: "gemini-3-pro-image",             label: "Gemini 3 Pro Image",     group: "Gemini",     provider: "gemini" },
+        { id: "gemini-3.1-flash-image-preview", label: "Gemini 3.1 Flash",       group: "Gemini",     provider: "gemini" },
+        { id: "dall-e-3",                       label: "DALL-E 3",                group: "OpenAI",     provider: "openai" },
+        { id: "gpt-image-1",                    label: "GPT-Image-1",             group: "OpenAI",     provider: "openai" },
+        { id: "gpt-image-1-mini",               label: "GPT-Image-1 Mini",        group: "OpenAI",     provider: "openai" },
+        { id: "midjourney",                     label: "Midjourney",              group: "Midjourney", provider: "midjourney" },
+        { id: "bria",                           label: "Bria",                    group: "Bria",       provider: "bria" },
+        { id: "flux-pro-1.1",                   label: "Flux Pro 1.1",            group: "Flux",       provider: "flux" },
+        { id: "flux-pro-1.1-ultra",             label: "Flux Pro 1.1 Ultra",      group: "Flux",       provider: "flux" },
+        { id: "flux-pro",                       label: "Flux Pro",                group: "Flux",       provider: "flux" },
+        { id: "flux-dev",                       label: "Flux Dev",                group: "Flux",       provider: "flux" },
+    ];
+
+    const MODEL_MAP = Object.fromEntries(MODELS.map(m => [m.id, m]));
+
+    const OPENAI_SIZES = {
+        "dall-e-3":       ["1024x1024", "1792x1024", "1024x1792"],
+        "gpt-image-1":    ["1024x1024", "1536x1024", "1024x1536"],
+        "gpt-image-1-mini": ["1024x1024", "1536x1024", "1024x1536"],
+    };
+
+    const BRIA_RATIOS = ["1:1","2:3","3:2","3:4","4:3","4:5","5:4","9:16","16:9"];
+
+    const FLUX_DIMS = {
+        "1:1":  { width: 1024, height: 1024 },
+        "16:9": { width: 1440, height: 816  },
+        "9:16": { width: 816,  height: 1440 },
+        "3:2":  { width: 1224, height: 816  },
+        "2:3":  { width: 816,  height: 1224 },
+        "4:3":  { width: 1088, height: 816  },
+        "3:4":  { width: 816,  height: 1088 },
+        "4:5":  { width: 912,  height: 1144 },
+        "5:4":  { width: 1144, height: 912  },
+    };
+
+    const MODEL_GROUPS = MODELS.reduce((acc, m) => {
+        if (!acc[m.group]) acc[m.group] = [];
+        acc[m.group].push(m);
+        return acc;
+    }, {});
+    // ── DB & utilities ──────────────────────────────────────────
+    const DB_NAME = "VisionsStudio_Final_Gold_V12_Clean";
+    const STORE   = "images";
+
+    const initDB = () => new Promise(resolve => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = e => {
+            if (!e.target.result.objectStoreNames.contains(STORE))
+                e.target.result.createObjectStore(STORE, { keyPath: "id" });
+        };
+        req.onsuccess = e => resolve(e.target.result);
+    });
+
+    const randName = () => Math.random().toString(36).slice(2, 9) + Math.random().toString(36).slice(2, 9);
+
+    const parseError = raw => {
+        const s = String(raw || "");
+        if (s.includes("401")) return { title: "API key rejected", detail: "Check that your key is correct and still active." };
+        if (s.includes("429")) return { title: "Rate limit hit",   detail: "Slow down a little. Wait a few seconds and try again." };
+        if (s.includes("403")) return { title: "No access",        detail: "Your key might not have permission to use this model." };
+        if (s.includes("500")) return { title: "Server hiccup",    detail: "Something went wrong on the API side. Try again." };
+        if (s.includes("KEY & PROMPT")) return { title: "Missing stuff", detail: "You need an API key and a prompt before generating." };
+        return { title: "Something went wrong", detail: s || "No extra info available." };
+    };
+
+    const urlToDataUrl = async url => {
+        try {
+            const res  = await fetch(url);
+            const blob = await res.blob();
+            return new Promise(resolve => {
+                const r = new FileReader();
+                r.onload = () => resolve(r.result);
+                r.readAsDataURL(blob);
+            });
+        } catch {
+            return url;
+        }
+    };
+
+    const poll = (fn, check, ms = 4000, signal, maxAttempts = 70) => new Promise((resolve, reject) => {
+        let attempts = 0;
+        const run = async () => {
+            if (signal?.aborted) return reject(new DOMException("Aborted", "AbortError"));
+            if (attempts >= maxAttempts) return reject(new Error("Timed out waiting for result. The model might be busy - try again."));
+            attempts++;
+            try {
+                const result = await fn();
+                if (check(result)) return resolve(result);
+                setTimeout(run, ms);
+            } catch (e) { reject(e); }
+        };
+        run();
+    });
+
+    const saveImg = (db, src, prompt) => {
+        const img = { id: Date.now() + Math.random(), src, prompt, timestamp: new Date().toLocaleString() };
+        db.transaction(STORE, "readwrite").objectStore(STORE).add(img);
+        return img;
+    };
+
+    // ── Provider generators ──────────────────────────────────────
+
+    const genGemini = async (db, { apiKey, model, prompt, ratio, size, refImages, signal }) => {
+        const isFlash31      = model === 'gemini-3.1-flash-image-preview';
+        const skipDimensions = model.includes('flash') || refImages.length > 0;
+
+        const imageParts = refImages.map(r => ({ inlineData: { mimeType: r.mediaType, data: r.base64 } }));
+        const body = {
+            contents: [{ role: "user", parts: [...imageParts, { text: prompt }] }],
+            generationConfig: {
+                responseModalities: ["TEXT", "IMAGE"],
+                ...(!skipDimensions && {
+                    imageConfig: {
+                        aspectRatio: ratio,
+                        imageSize: size
+                    }
+                })
+            }
+        };
+        const res = await fetch(`https://api.cometapi.com/v1beta/models/${model}:generateContent`, {
+            method: "POST",
+            mode: "cors",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+            body: JSON.stringify(body),
+            signal
+        });
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            const verbatimMessage = errorData.error?.message || `API ERROR: ${res.status}`;
+            throw new Error(verbatimMessage);
+        }
+        const data = await res.json();
+        const b64  = data?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+        if (!b64) {
+            const textPart = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
+            throw new Error(textPart ? `Model returned text instead of image: "${textPart.slice(0, 120)}"` : "Model returned no image. Try a different prompt.");
+        }
+        return saveImg(db, `data:image/png;base64,${b64}`, prompt);
+    };
+
+    const genOpenAI = async (db, { apiKey, model, prompt, openaiSize, signal }) => {
+        const body = { model, prompt, n: 1, response_format: "b64_json" };
+        if (openaiSize) body.size = openaiSize;
+        const res = await fetch("https://api.cometapi.com/v1/images/generations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+            body: JSON.stringify(body),
+            signal
+        });
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            const verbatimMessage = errorData.error?.message || `API ERROR: ${res.status}`;
+            throw new Error(verbatimMessage);
+        }
+        const data = await res.json();
+        const item = data?.data?.[0];
+        if (!item) return null;
+        let src;
+        if (item.b64_json) {
+            src = `data:image/png;base64,${item.b64_json}`;
+        } else if (item.url) {
+            src = await urlToDataUrl(item.url);
+        }
+        return src ? saveImg(db, src, prompt) : null;
+    };
+
+    const genMidjourney = async (db, { apiKey, prompt, batchSize, signal, setStatusMsg }) => {
+        setStatusMsg("Submitting to MJ...");
+        const submitRes = await fetch("https://api.cometapi.com/mj/submit/imagine", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+            body: JSON.stringify({ botType: "MID_JOURNEY", prompt, accountFilter: { modes: ["FAST"] } }),
+            signal
+        });
+        if (!submitRes.ok) throw new Error(`API ERROR: ${submitRes.status}`);
+        const submitData = await submitRes.json();
+        const taskId = submitData.result;
+        if (!taskId) throw new Error("Midjourney: no task ID in response.");
+
+        const fetchTask = async id => {
+            const r = await fetch(`https://api.cometapi.com/mj/task/${id}/fetch`, {
+                headers: { "Authorization": `Bearer ${apiKey}` }, signal
+            });
+            return r.json();
+        };
+
+        setStatusMsg("MJ is creating...");
+        const gridResult = await poll(
+            () => fetchTask(taskId),
+            r => r.status === "SUCCESS" || r.status === "FAILURE",
+            5000, signal, 70
+        );
+        if (gridResult.status === "FAILURE") throw new Error("Midjourney: generation failed.");
+
+        const upscaleButtons = (gridResult.buttons || [])
+            .filter(b => /^U[1-4]$/.test(b.label))
+            .slice(0, batchSize);
+
+        if (!upscaleButtons.length) {
+            const src = await urlToDataUrl(gridResult.imageUrl);
+            return [saveImg(db, src, prompt)];
+        }
+
+        const results = [];
+        for (let i = 0; i < upscaleButtons.length; i++) {
+            if (signal?.aborted) break;
+            const btn = upscaleButtons[i];
+            setStatusMsg(`Upscaling image ${i + 1} of ${upscaleButtons.length}...`);
+            const actionRes = await fetch("https://api.cometapi.com/mj/submit/action", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+                body: JSON.stringify({ taskId, customId: btn.customId }),
+                signal
+            });
+            if (!actionRes.ok) continue;
+            const actionData  = await actionRes.json();
+            const upscaleId   = actionData.result;
+            if (!upscaleId) continue;
+            const upscaleResult = await poll(
+                () => fetchTask(upscaleId),
+                r => r.status === "SUCCESS" || r.status === "FAILURE",
+                4000, signal, 60
+            );
+            if (upscaleResult.status === "SUCCESS" && upscaleResult.imageUrl) {
+                const src = await urlToDataUrl(upscaleResult.imageUrl);
+                results.push(saveImg(db, src, prompt));
+            }
+        }
+        return results;
+    };
+
+    const genBria = async (db, { apiKey, prompt, ratio, batchSize, signal }) => {
+        const body = { prompt, num_results: batchSize, aspect_ratio: ratio };
+        const res  = await fetch("https://api.cometapi.com/bria/text-to-image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+            body: JSON.stringify(body),
+            signal
+        });
+        if (!res.ok) throw new Error(`API ERROR: ${res.status}`);
+        const data    = await res.json();
+        const results = [];
+        for (const item of (data?.result || [])) {
+            for (const url of (item.urls || [])) {
+                const src = await urlToDataUrl(url);
+                results.push(saveImg(db, src, prompt));
+            }
+        }
+        return results;
+    };
+
+    const genFlux = async (db, { apiKey, model, prompt, ratio, signal, setStatusMsg }) => {
+        const { width, height } = FLUX_DIMS[ratio] || FLUX_DIMS["1:1"];
+        setStatusMsg("Submitting to Flux...");
+        const submitRes = await fetch(`https://api.cometapi.com/flux/v1/${model}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+            body: JSON.stringify({ prompt, width, height, output_format: "png" }),
+            signal
+        });
+        if (!submitRes.ok) throw new Error(`API ERROR: ${submitRes.status}`);
+        const submitData = await submitRes.json();
+        const fluxId = submitData.id;
+        if (!fluxId) throw new Error("Flux: no task ID in response.");
+
+        setStatusMsg("Waiting for Flux...");
+        const resultData = await poll(
+            async () => {
+                const r = await fetch(`https://api.cometapi.com/flux/v1/get_result?id=${fluxId}`, {
+                    headers: { "Authorization": `Bearer ${apiKey}` }, signal
+                });
+                return r.json();
+            },
+            r => r.status === "Ready" || r.status === "Error",
+            3000, signal, 60
+        );
+        if (resultData.status === "Error") throw new Error("Flux: generation failed.");
+        const imageUrl = resultData?.result?.sample;
+        if (!imageUrl) return null;
+        const src = await urlToDataUrl(imageUrl);
+        return saveImg(db, src, prompt);
+    };
+
+    function Confirm({ title, body, confirmLabel, onConfirm, onCancel }) {
+        return (
+            <div className="overlay" onClick={onCancel}>
+                <div className="modal" onClick={e => e.stopPropagation()}>
+                    <div className="modal-title">{title}</div>
+                    <div className="modal-body">{body}</div>
+                    <div className="modal-actions">
+                        <button className="btn btn-ghost" onClick={onCancel}>Never mind</button>
+                        <button className="btn btn-danger" onClick={onConfirm}>{confirmLabel}</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    function App() {
+        const [apiKey,    setApiKey]    = useState(() => localStorage.getItem("vs_key") || "");
+        const [history,   setHistory]   = useState([]);
+        const [prompt,    setPrompt]    = useState("");
+        const [model,     setModel]     = useState("gemini-3-pro-image");
+        const [ratio,     setRatio]     = useState("1:1");
+        const [size,      setSize]      = useState("1K");
+        const [openaiSize, setOpenaiSize] = useState("1024x1024");
+        const [batchSize, setBatchSize] = useState(1);
+        const [loading,   setLoading]   = useState(false);
+        const [statusMsg, setStatusMsg] = useState("");
+        const [error,     setError]     = useState(null);
+        const [selectedIds, setSelectedIds] = useState([]);
+        const [viewImage,   setViewImage]   = useState(null);
+        const [confirm,     setConfirm]     = useState(null);
+        const abortRef     = useRef(null);
+        const [mobileTab,  setMobileTab]    = useState("gallery");
+        const [refImages,  setRefImages]    = useState([]);
+        const fileInputRef = useRef(null);
+        const [dragging,   setDragging]     = useState(false);
+        const [lastId,     setLastId]       = useState(null);
+
+        useEffect(() => {
+            if (selectedIds.length === 0) {
+                setLastId(null);
+            } else if (!selectedIds.includes(lastId)) {
+                setLastId(selectedIds[selectedIds.length - 1]);
+            }
+        }, [selectedIds, lastId]);
+
+        const provider = MODEL_MAP[model]?.provider || "gemini";
+
+        useEffect(() => {
+            if (provider === "openai") {
+                const sizes = OPENAI_SIZES[model] || ["1024x1024"];
+                setOpenaiSize(sizes[0]);
+            }
+        }, [model]);
+
+        useEffect(() => {
+            const load = async () => {
+                const db  = await initDB();
+                const req = db.transaction(STORE, "readonly").objectStore(STORE).getAll();
+                req.onsuccess = () => setHistory(req.result.sort((a, b) => b.id - a.id));
+            };
+            load();
+        }, []);
+
+        useEffect(() => { localStorage.setItem("vs_key", apiKey); }, [apiKey]);
+
+        const exportVault = async () => {
+            const db = await initDB();
+            const transaction = db.transaction(STORE, "readonly");
+            const store = transaction.objectStore(STORE);
+            const getAllRequest = store.getAll();
+
+            getAllRequest.onsuccess = () => {
+                const data = JSON.stringify(getAllRequest.result);
+                const blob = new Blob([data], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `visions-backup-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+        };
+
+        const importVault = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    const db = await initDB();
+                    const transaction = db.transaction(STORE, "readwrite");
+                    const store = transaction.objectStore(STORE);
+                    importedData.forEach(item => { store.put(item); });
+                    transaction.oncomplete = () => {
+                        alert("Vault restored! Refreshing...");
+                        window.location.reload();
+                    };
+                } catch (err) {
+                    alert("Error: This file is not a valid Visions backup.");
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        const toBase64 = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = reader.result;
+                resolve({ id: Math.random(), base64: result.split(",")[1], mediaType: file.type, preview: result });
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        const handleRefFiles = async e => {
+            const files     = Array.from(e.target.files || []);
+            const converted = await Promise.all(files.map(toBase64));
+            setRefImages(prev => [...prev, ...converted]);
+            e.target.value = "";
+        };
+
+        const removeRef = id => setRefImages(prev => prev.filter(r => r.id !== id));
+        const clearRefs = () => setRefImages([]);
+
+        const handleDrop = async e => {
+            e.preventDefault();
+            setDragging(false);
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
+            if (!files.length) return;
+            const converted = await Promise.all(files.map(toBase64));
+            setRefImages(prev => [...prev, ...converted]);
+        };
+
+        const executeBatch = async () => {
+            if (!apiKey || !prompt) return setError(parseError("KEY & PROMPT"));
+            const controller = new AbortController();
+            abortRef.current = controller;
+            setLoading(true);
+            setError(null);
+            setStatusMsg("Generating...");
+            const cfg = { apiKey, model, prompt, ratio, size, openaiSize, refImages, batchSize, signal: controller.signal, setStatus: setStatusMsg };
+            try {
+                const db   = await initDB();
+                const imgs = [];
+
+                if (provider === "midjourney") {
+                    const results = await genMidjourney(db, cfg);
+                    imgs.push(...results);
+                } else if (provider === "bria") {
+                    const results = await genBria(db, cfg);
+                    imgs.push(...results);
+                } 
+                else {
+                    const providerNames = {
+                        'gemini': 'Gemini',
+                        'openai': 'OpenAI',
+                        'flux': 'Flux'
+                    };
+
+                    for (let i = 0; i < batchSize; i++) {
+                        if (controller.signal.aborted) break;
+                        
+                        const name = providerNames[provider] || "Model";
+                        const count = batchSize > 1 ? ` ${i + 1} of ${batchSize}` : "";
+                        
+                        setStatusMsg(`${name} is creating${count}...`);
+
+                        let img = null;
+                        if (provider === "gemini") img = await genGemini(db, cfg);
+                        if (provider === "openai") img = await genOpenAI(db, cfg);
+                        if (provider === "flux")   img = await genFlux(db, cfg);
+                        if (img) imgs.push(img);
+                    }
+                }
+
+                if (imgs.length > 0) {
+                    setHistory(prev => [...imgs, ...prev].sort((a, b) => b.id - a.id));
+                    setMobileTab("gallery");
+                }
+            } catch (err) {
+                if (err.name !== "AbortError") setError(parseError(err.message));
+            } finally {
+                setLoading(false);
+                setStatusMsg("");
+                abortRef.current = null;
+            }
+        };
+
+        const cancelBatch = () => {
+            if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
+        };
+
+        const deleteOne = (id, e) => {
+            e.stopPropagation();
+            setConfirm({
+                title: "Delete this image?",
+                body: "It's gone for good once you confirm. No undo on this one.",
+                confirmLabel: "Delete",
+                onConfirm: async () => {
+                    const db = await initDB();
+                    db.transaction(STORE, "readwrite").objectStore(STORE).delete(id);
+                    setHistory(prev => prev.filter(h => h.id !== id));
+                    setSelectedIds(prev => prev.filter(i => i !== id));
+                    setConfirm(null);
+                }
+            });
+        };
+
+        const downloadBulk = () => {
+            const toDownload = history.filter(img => selectedIds.includes(img.id));
+            toDownload.forEach((img, index) => {
+                setTimeout(() => {
+                    const a = document.createElement("a");
+                    const randomId = Math.random().toString(36).substring(2, 10);
+                    a.href = img.src;
+                    a.download = `vision-${randomId}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }, index * 200);
+            });
+        };
+
+        const deleteBulk = () => {
+            setConfirm({
+                title: `Delete ${selectedIds.length} image${selectedIds.length > 1 ? "s" : ""}?`,
+                body: "All selected images will be gone for good. No going back.",
+                confirmLabel: "Delete all",
+                onConfirm: async () => {
+                    const db = await initDB();
+                    const tx = db.transaction(STORE, "readwrite");
+                    selectedIds.forEach(id => tx.objectStore(STORE).delete(id));
+                    setHistory(prev => prev.filter(h => !selectedIds.includes(h.id)));
+                    setSelectedIds([]);
+                    setConfirm(null);
+                }
+            });
+        };
+
+        const toggleSelect = (id, e) => {
+            if (e) e.stopPropagation();
+
+            setSelectedIds(prev => {
+                const isIncluded = prev.includes(id);
+
+                // LAPTOP ONLY: Range Selection/Unselection
+                if (e?.shiftKey && lastId !== null) {
+                    const currentIdx = history.findIndex(img => img.id === id);
+                    const lastIdx    = history.findIndex(img => img.id === lastId);
+
+                    if (currentIdx !== -1 && lastIdx !== -1) {
+                        const start    = Math.min(currentIdx, lastIdx);
+                        const end      = Math.max(currentIdx, lastIdx);
+                        const rangeIds = history.slice(start, end + 1).map(img => img.id);
+
+                        if (isIncluded) {
+                            // If target is already purple, wipe the whole range
+                            return prev.filter(pId => !rangeIds.includes(pId));
+                        } else {
+                            // If target is empty, fill the whole range
+                            return [...new Set([...prev, ...rangeIds])];
+                        }
+                    }
+                }
+
+                // MOBILE & MANUAL: Simple one-by-one toggle
+                return isIncluded ? prev.filter(i => i !== id) : [...prev, id];
+            });
+
+            // Update the anchor for the next laptop Shift-click
+            setLastId(id);
+        };
+
+        const downloadImg = (img, e) => {
+            if (e) e.stopPropagation();
+            const a = document.createElement("a");
+            const randomId = Math.random().toString(36).substring(2, 10);
+            a.href = img.src;
+            a.download = `vision-${randomId}.png`;
+            a.click();
+        };
+
+        const copyPrompt = (text, e) => {
+            if (e) e.stopPropagation();
+            if (!text) return;
+            navigator.clipboard.writeText(text);
+        };
+
+        const isGeminiFlash = model === 'gemini-3.1-flash-image-preview';
+        const geminiDisabled = refImages.length > 0 || isGeminiFlash;
+
+        return (
+            <div className="app">
+
+                {/* ── Sidebar ── */}
+                <aside className={`sidebar${mobileTab === "settings" ? " tab-active" : ""}`}>
+                    <div className="sidebar-body">
+                        <div className="wordmark">Visions Studio</div>
+
+                        <div className="field">
+                            <label className="label">API key</label>
+                            <input type="password" className="inp" placeholder="Paste your key here"
+                                value={apiKey} onChange={e => setApiKey(e.target.value)} />
+                        </div>
+
+                        <div className="field">
+                            <label className="label">Model</label>
+                            <select className="inp" value={model} onChange={e => setModel(e.target.value)}>
+                                {Object.entries(MODEL_GROUPS).map(([group, models]) => (
+                                    <optgroup key={group} label={group}>
+                                        {models.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                                    </optgroup>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="field">
+                            <label className="label">
+                                {provider === "midjourney" ? "Images to upscale" : "How many"}
+                            </label>
+                            <select className="inp" value={batchSize} onChange={e => setBatchSize(parseInt(e.target.value))}>
+                                {[1,2,3,4].map(n =>
+                                    <option key={n} value={n}>{n} {n === 1 ? "image" : "images"}</option>
+                                )}
+                            </select>
+                        </div>
+
+                        {provider === "gemini" && (
+                            <div className="field">
+                                <label className="label">Dimensions</label>
+                                <div className={geminiDisabled ? "inp-row faded" : "inp-row"}>
+                                    <select className="inp" value={ratio} onChange={e => setRatio(e.target.value)} disabled={geminiDisabled}>
+                                        {["1:1","3:2","2:3","3:4","4:3","4:5","5:4","9:16","16:9","21:9"].map(r =>
+                                            <option key={r} value={r}>{r}</option>
+                                        )}
+                                    </select>
+                                    <select className="inp" value={size} onChange={e => setSize(e.target.value)} disabled={geminiDisabled}>
+                                        <option value="1K">1K</option>
+                                        <option value="2K">2K</option>
+                                        <option value="4K">4K</option>
+                                    </select>
+                                </div>
+                                {geminiDisabled && (
+                                    <div className="flash-warn" style={{marginTop:7}}>
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                                            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                                        </svg>
+                                        {isGeminiFlash 
+                                            ? "Flash 3.1 ignores aspect ratio and resolution." 
+                                            : "Dimensions are ignored when using reference images."}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {provider === "openai" && (
+                            <div className="field">
+                                <label className="label">Size</label>
+                                <select className="inp" value={openaiSize} onChange={e => setOpenaiSize(e.target.value)}>
+                                    {(OPENAI_SIZES[model] || ["1024x1024"]).map(s =>
+                                        <option key={s} value={s}>{s}</option>
+                                    )}
+                                </select>
+                            </div>
+                        )}
+
+                        {provider === "bria" && (
+                            <div className="field">
+                                <label className="label">Ratio</label>
+                                <select className="inp" value={ratio} onChange={e => setRatio(e.target.value)}>
+                                    {BRIA_RATIOS.map(r => <option key={r} value={r}>{r}</option>)}
+                                </select>
+                            </div>
+                        )}
+
+                        {provider === "flux" && (
+                            <div className="field">
+                                <label className="label">Ratio</label>
+                                <select className="inp" value={ratio} onChange={e => setRatio(e.target.value)}>
+                                    {Object.keys(FLUX_DIMS).map(r => {
+                                        const d = FLUX_DIMS[r];
+                                        return <option key={r} value={r}>{r} ({d.width}x{d.height})</option>;
+                                    })}
+                                </select>
+                            </div>
+                        )}
+
+                        {provider === "midjourney" && (
+                            <div className="flash-warn" style={{marginTop:0}}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                                </svg>
+                                Use --ar in your prompt to control ratio. Batch count = how many images get upscaled.
+                            </div>
+                        )}
+
+                        {provider === "gemini" && (
+                            <div className="field">
+                                <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+                                    <label className="label">Reference images <span style={{fontWeight:400, color:"var(--text3)"}}>- optional</span></label>
+                                    {refImages.length > 1 && (
+                                        <button onClick={clearRefs} style={{background:"none", border:"none", color:"var(--text3)", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"'Figtree', sans-serif", padding:0}}>
+                                            Clear all
+                                        </button>
+                                    )}
+                                </div>
+                                <input ref={fileInputRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={handleRefFiles} />
+                                <div
+                                    className="ref-drop"
+                                    style={dragging ? {borderColor:"var(--purple)", background:"rgba(139,92,246,0.07)"} : {}}
+                                    onClick={() => fileInputRef.current.click()}
+                                    onDragOver={e => { e.preventDefault(); setDragging(true); }}
+                                    onDragLeave={() => setDragging(false)}
+                                    onDrop={handleDrop}
+                                >
+                                    <span className="ref-drop-label">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                                        </svg>
+                                        {dragging ? "Drop to add" : "Click or drag images here"}
+                                    </span>
+                                </div>
+                                {refImages.length > 0 && (
+                                    <div className="ref-thumbs">
+                                        {refImages.map(r => (
+                                            <div key={r.id} className="ref-thumb">
+                                                <img src={r.preview} />
+                                                <button className="ref-thumb-rm" onClick={() => removeRef(r.id)}>✕</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="field">
+                            <label className="label">What do you want to make?</label>
+                            <textarea className="inp" placeholder="Describe it however feels right..."
+                                value={prompt} onChange={e => setPrompt(e.target.value)} />
+                        </div>
+                    </div>
+
+                    <div className="sidebar-foot">
+                        {error && (
+                            <div className="error-box">
+                                <div className="error-title">{error.title}</div>
+                                <div className="error-detail">{error.detail}</div>
+                            </div>
+                        )}
+                        {loading ? (
+                            <div className="btn-row">
+                                <button className="btn btn-primary" disabled>
+                                    <span className="pulse-text">
+                                        {statusMsg || "Generating..."}
+                                    </span>
+                                </button>
+                                <button className="btn btn-stop" onClick={cancelBatch}>Stop</button>
+                            </div>
+                        ) : (
+                            <button className="btn btn-primary" onClick={executeBatch}>Generate</button>
+                        )}
+                    </div>
+                </aside>
+
+                {/* ── Gallery ── */}
+                <main className={`main${mobileTab === "gallery" ? " tab-active" : ""}`}>
+                    <div className="main-header">
+                        <div>
+                            <div className="page-title">Your images</div>
+                            <div className="page-sub">{history.length} saved</div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button onClick={exportVault} className="btn-ghost" style={{ height: 34 }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: 6}}>
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                Backup
+                            </button>
+                            
+                            <label className="btn-ghost" style={{ height: 34, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', fontWeight: 600 }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: 6}}>
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                                Restore
+                                <input type="file" accept=".json" onChange={importVault} style={{ display: 'none' }} />
+                            </label>
+                        </div>
+
+                        {selectedIds.length > 0 && (
+                            <div className="btn-row">
+                                <button className="download-btn" onClick={downloadBulk}>
+                                    Download {selectedIds.length}
+                                </button>
+                                <button className="btn btn-danger" onClick={deleteBulk}>
+                                    Delete {selectedIds.length}
+                                </button>
+                                <button className="btn btn-ghost" style={{height: 34}} onClick={() => setSelectedIds([])}>
+                                    Cancel
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {history.length === 0 ? (
+                        <div className="empty">
+                            <div className="empty-icon">✦</div>
+                            <p>Nothing here yet</p>
+                            <span>Your generated images will show up here.</span>
+                        </div>
+                    ) : (
+                        <div className="gallery">
+                            {history.map(img => (
+                                <div 
+                                    key={img.id} 
+                                    className={`img-card${selectedIds.includes(img.id) ? " selected" : ""}`} 
+                                    onClick={() => setViewImage(img)}
+                                >
+                                    <img src={img.src} loading="lazy" draggable="false" />
+                                    <div className="card-overlay">
+                                        <div className="card-top">
+                                            <div 
+                                                className="check" 
+                                                onClick={(e) => { 
+                                                    e.stopPropagation();
+                                                    toggleSelect(img.id, e);
+                                                }}
+                                            >
+                                                {selectedIds.includes(img.id) && (
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5">
+                                                        <polyline points="20 6 9 17 4 12"/>
+                                                    </svg>
+                                                )}
+                                            </div>
+                                            <button className="del-btn" onClick={e => deleteOne(img.id, e)}>Delete</button>
+                                        </div>
+                                        {img.prompt && (
+                                            <div className="prompt-fade"><p>{img.prompt}</p></div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                    )}
+                </main>
+
+                {/* ── Viewer ── */}
+                {viewImage && (
+                    <div className="viewer" onClick={() => setViewImage(null)}>
+                        <div className="viewer-top" onClick={e => e.stopPropagation()}>
+                            <button className="viewer-back" onClick={() => setViewImage(null)}>Back</button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button 
+                                    className="viewer-back" 
+                                    onClick={(e) => copyPrompt(viewImage.prompt, e)}
+                                    style={{ background: 'var(--surf2)' }}
+                                >
+                                    Copy Prompt
+                                </button>
+                                <button className="viewer-dl" onClick={e => downloadImg(viewImage, e)}>
+                                    Download PNG
+                                </button>
+                            </div>
+                        </div>
+                        <div className="viewer-img" onClick={e => e.stopPropagation()}>
+                            <img src={viewImage.src} draggable="false" />
+                        </div>
+                        {viewImage.prompt && (
+                            <div className="viewer-prompt" onClick={e => e.stopPropagation()}>{viewImage.prompt}</div>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Confirm modal ── */}
+                {confirm && (
+                    <Confirm title={confirm.title} body={confirm.body} confirmLabel={confirm.confirmLabel}
+                        onConfirm={confirm.onConfirm} onCancel={() => setConfirm(null)} />
+                )}
+
+                {/* ── Mobile tab bar ── */}
+                <nav className="tab-bar">
+                    <button className={`tab-btn${mobileTab === "settings" ? " active" : ""}`} onClick={() => setMobileTab("settings")}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:20,height:20}}>
+                            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+                        </svg>
+                        Settings
+                    </button>
+                    <button className={`tab-btn${mobileTab === "gallery" ? " active" : ""}`} onClick={() => setMobileTab("gallery")}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:20,height:20}}>
+                            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                        </svg>
+                        Gallery
+                        {history.length > 0 && <span style={{fontSize:9, color:"var(--text3)", marginTop:-2}}>{history.length}</span>}
+                    </button>
+                </nav>
+            </div>
+        );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
