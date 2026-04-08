@@ -1004,10 +1004,10 @@
             if (s.includes("KEY & PROMPT")) return { type: "app", title: "hold on", detail: "you need an api key and a prompt before anything happens" };
             return { type: "app", title: "oops", detail: s || "something went wrong on our end" };
         }
-        if (s.includes("401")) return { type: "api", title: "bad key", detail: "that key got rejected — double check it's correct and still active" };
+        if (s.includes("401")) return { type: "api", title: "bad key", detail: "that key got rejected. double check it's correct and still active" };
         if (s.includes("429")) return { type: "api", title: "slow down", detail: "hit a rate limit. wait a sec and try again" };
         if (s.includes("403")) return { type: "api", title: "no access", detail: "your key might not have permission for this model" };
-        if (s.includes("500")) return { type: "api", title: "server error", detail: "something broke on the api side. not you — try again" };
+        if (s.includes("500")) return { type: "api", title: "server error", detail: "something broke on the api side. not you, try again" };
         return { type: "api", title: "something broke", detail: s || "no details available" };
     };
 
@@ -1029,7 +1029,7 @@
         let attempts = 0;
         const run = async () => {
             if (signal?.aborted) return reject(new DOMException("Aborted", "AbortError"));
-            if (attempts >= maxAttempts) return reject(new Error("timed out waiting. the model might be busy — try again"));
+            if (attempts >= maxAttempts) return reject(new Error("timed out waiting. the model might be busy, try again"));
             attempts++;
             try {
                 const result = await fn();
@@ -1080,7 +1080,7 @@
         const b64 = data?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
         if (!b64) {
             const txt = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
-            throw new Error(txt ? `model returned text instead of image: "${txt.slice(0, 120)}"` : "model returned no image — try a different prompt");
+            throw new Error(txt ? `model returned text instead of image: "${txt.slice(0, 120)}"` : "model returned no image, try a different prompt");
         }
         return saveImg(db, `data:image/png;base64,${b64}`, prompt, {
             model, modelLabel: MODEL_MAP[model]?.label, provider: "gemini",
@@ -1324,7 +1324,7 @@
                     const tx = db.transaction(STORE, "readwrite");
                     data.forEach(item => tx.objectStore(STORE).put(item));
                     tx.oncomplete = () => {
-                        alert("vault restored — refreshing");
+                        alert("vault restored! refreshing...");
                         window.location.reload();
                     };
                 } catch {
@@ -1444,7 +1444,7 @@
         const deleteBulk = () => {
             setConfirm({
                 title: `delete ${selectedIds.length} image${selectedIds.length > 1 ? "s" : ""}?`,
-                body: "all of them — gone. no going back.",
+                body: "all of them... gone. no going back.",
                 confirmLabel: "delete all",
                 onConfirm: async () => {
                     const db = await initDB();
