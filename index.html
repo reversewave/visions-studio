@@ -894,6 +894,13 @@
         /* ── Tab bar ── */
         .tab-bar { display: none; }
 
+        /* ── Dim hint ── */
+        .dim-hint {
+            font-size: 11px;
+            color: var(--text3);
+            margin-top: 2px;
+        }
+
         /* ── Mobile ── */
         @media (max-width: 640px) {
             body { overflow: hidden; }
@@ -973,22 +980,17 @@
         { id: "gemini-3-pro-image",             label: "Gemini 3 Pro Image",  group: "Gemini",     provider: "gemini" },
         { id: "gemini-3.1-flash-image-preview", label: "Gemini 3.1 Flash",    group: "Gemini",     provider: "gemini" },
         { id: "dall-e-3",                       label: "DALL-E 3",            group: "OpenAI",     provider: "openai" },
-        { id: "gpt-image-1",                    label: "GPT-Image-1",         group: "OpenAI",     provider: "openai" },
-        { id: "gpt-image-1-mini",               label: "GPT-Image-1 Mini",    group: "OpenAI",     provider: "openai" },
+        { id: "gpt-image-1.5",                  label: "GPT Image 1.5",       group: "OpenAI",     provider: "openai" },
         { id: "midjourney",                     label: "Midjourney",           group: "Midjourney", provider: "midjourney" },
-        { id: "bria",                           label: "Bria",                group: "Bria",       provider: "bria" },
-        { id: "flux-pro-1.1",                   label: "Flux Pro 1.1",        group: "Flux",       provider: "flux" },
-        { id: "flux-pro-1.1-ultra",             label: "Flux Pro 1.1 Ultra",  group: "Flux",       provider: "flux" },
-        { id: "flux-pro",                       label: "Flux Pro",            group: "Flux",       provider: "flux" },
-        { id: "flux-dev",                       label: "Flux Dev",            group: "Flux",       provider: "flux" },
+        { id: "bria/image-3.2",                 label: "Bria 3.2",            group: "Bria",       provider: "bria" },
+        { id: "flux-2-max",                     label: "Flux 2 Max",          group: "Flux",       provider: "flux" },
     ];
 
     const MODEL_MAP = Object.fromEntries(MODELS.map(m => [m.id, m]));
 
     const OPENAI_SIZES = {
         "dall-e-3":         ["1024x1024", "1792x1024", "1024x1792"],
-        "gpt-image-1":      ["1024x1024", "1536x1024", "1024x1536"],
-        "gpt-image-1-mini": ["1024x1024", "1536x1024", "1024x1536"],
+        "gpt-image-1.5":    ["1024x1024", "1536x1024", "1024x1536"],
     };
 
     const BRIA_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"];
@@ -996,23 +998,19 @@
     const GEMINI_PRO_RATIOS  = ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"];
     const GEMINI_FLASH_RATIOS = [...GEMINI_PRO_RATIOS, "1:4", "4:1", "1:8", "8:1"];
 
-    const FLUX_DIMS = {
-        "1:1":  { width: 1024, height: 1024 },
-        "16:9": { width: 1440, height: 816 },
-        "9:16": { width: 816,  height: 1440 },
-        "3:2":  { width: 1224, height: 816 },
-        "2:3":  { width: 816,  height: 1224 },
-        "4:3":  { width: 1088, height: 816 },
-        "3:4":  { width: 816,  height: 1088 },
-        "4:5":  { width: 912,  height: 1144 },
-        "5:4":  { width: 1144, height: 912 },
-    };
-
     const MODEL_GROUPS = MODELS.reduce((acc, m) => {
         if (!acc[m.group]) acc[m.group] = [];
         acc[m.group].push(m);
         return acc;
     }, {});
+
+    /* ── Flux dimension helpers ── */
+    const snapTo16 = v => Math.round(v / 16) * 16;
+    const clampFluxDim = v => {
+        let n = parseInt(v) || 1024;
+        n = snapTo16(n);
+        return Math.max(64, Math.min(2048, n));
+    };
 
     /* ── DB & utilities ── */
     const DB_NAME = "VisionsStudio_Final_Gold_V12_Clean";
@@ -1209,8 +1207,9 @@
     };
 
     /* ── Provider: Bria ── */
-    const genBria = async (db, { apiKey, prompt, ratio, batchSize, signal }) => {
+    const genBria = async (db, { apiKey, prompt, negativePrompt, ratio, batchSize, signal }) => {
         const body = { prompt, num_results: batchSize, aspect_ratio: ratio };
+        if (negativePrompt && negativePrompt.trim()) body.negative_prompt = negativePrompt.trim();
         const res = await fetch("https://api.cometapi.com/bria/text-to-image", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
@@ -1222,15 +1221,16 @@
         for (const item of (data?.result || [])) {
             for (const url of (item.urls || [])) {
                 const src = await urlToDataUrl(url);
-                results.push(saveImg(db, src, prompt, { model: "bria", modelLabel: "Bria", provider: "bria", ratio }));
+                results.push(saveImg(db, src, prompt, { model: "bria/image-3.2", modelLabel: "Bria 3.2", provider: "bria", ratio }));
             }
         }
         return results;
     };
 
     /* ── Provider: Flux ── */
-    const genFlux = async (db, { apiKey, model, prompt, ratio, signal, setStatusMsg }) => {
-        const { width, height } = FLUX_DIMS[ratio] || FLUX_DIMS["1:1"];
+    const genFlux = async (db, { apiKey, model, prompt, fluxWidth, fluxHeight, signal, setStatusMsg }) => {
+        const width = clampFluxDim(fluxWidth);
+        const height = clampFluxDim(fluxHeight);
         setStatusMsg("submitting to flux...");
         const submitRes = await fetch(`https://api.cometapi.com/flux/v1/${model}`, {
             method: "POST",
@@ -1258,7 +1258,7 @@
         const imageUrl = resultData?.result?.sample;
         if (!imageUrl) return null;
         const src = await urlToDataUrl(imageUrl);
-        return saveImg(db, src, prompt, { model, modelLabel: MODEL_MAP[model]?.label, provider: "flux", ratio });
+        return saveImg(db, src, prompt, { model, modelLabel: MODEL_MAP[model]?.label, provider: "flux", size: `${width}×${height}` });
     };
 
     /* ── Confirm component ── */
@@ -1301,6 +1301,9 @@
         const [dragging, setDragging] = useState(false);
         const [lastId, setLastId] = useState(null);
         const [lightboxSrc, setLightboxSrc] = useState(null);
+        const [negativePrompt, setNegativePrompt] = useState("");
+        const [fluxWidth, setFluxWidth] = useState(1024);
+        const [fluxHeight, setFluxHeight] = useState(1024);
 
         useEffect(() => {
             if (selectedIds.length === 0) setLastId(null);
@@ -1394,6 +1397,10 @@
             setRefImages(prev => [...prev, ...converted]);
         };
 
+        const handleFluxDimBlur = (setter) => (e) => {
+            setter(clampFluxDim(e.target.value));
+        };
+
         const executeBatch = async () => {
             if (!apiKey || !prompt) return setError(parseError("KEY & PROMPT", "app"));
             const controller = new AbortController();
@@ -1401,7 +1408,7 @@
             setLoading(true);
             setError(null);
             setStatusMsg("generating...");
-            const cfg = { apiKey, model, prompt, ratio, size, openaiSize, refImages, batchSize, signal: controller.signal, setStatusMsg };
+            const cfg = { apiKey, model, prompt, ratio, size, openaiSize, refImages, batchSize, negativePrompt, fluxWidth, fluxHeight, signal: controller.signal, setStatusMsg };
             try {
                 const db = await initDB();
                 const imgs = [];
@@ -1594,23 +1601,31 @@
                         )}
 
                         {provider === "bria" && (
-                            <div className="field">
-                                <label className="label">ratio</label>
-                                <select className="inp" value={ratio} onChange={e => setRatio(e.target.value)}>
-                                    {BRIA_RATIOS.map(r => <option key={r} value={r}>{r}</option>)}
-                                </select>
-                            </div>
+                            <>
+                                <div className="field">
+                                    <label className="label">ratio</label>
+                                    <select className="inp" value={ratio} onChange={e => setRatio(e.target.value)}>
+                                        {BRIA_RATIOS.map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
+                                <div className="field">
+                                    <label className="label">negative prompt <span style={{ fontWeight: 400, color: "var(--text3)", textTransform: "none", letterSpacing: 0 }}>optional</span></label>
+                                    <textarea className="inp" style={{ height: 72 }} placeholder="things to exclude from the image..."
+                                        value={negativePrompt} onChange={e => setNegativePrompt(e.target.value)} />
+                                </div>
+                            </>
                         )}
 
                         {provider === "flux" && (
                             <div className="field">
-                                <label className="label">ratio</label>
-                                <select className="inp" value={ratio} onChange={e => setRatio(e.target.value)}>
-                                    {Object.keys(FLUX_DIMS).map(r => {
-                                        const d = FLUX_DIMS[r];
-                                        return <option key={r} value={r}>{r} ({d.width}×{d.height})</option>;
-                                    })}
-                                </select>
+                                <label className="label">dimensions (px)</label>
+                                <div className="inp-row">
+                                    <input type="number" className="inp" placeholder="width" min="64" max="2048" step="16"
+                                        value={fluxWidth} onChange={e => setFluxWidth(e.target.value)} onBlur={handleFluxDimBlur(setFluxWidth)} />
+                                    <input type="number" className="inp" placeholder="height" min="64" max="2048" step="16"
+                                        value={fluxHeight} onChange={e => setFluxHeight(e.target.value)} onBlur={handleFluxDimBlur(setFluxHeight)} />
+                                </div>
+                                <div className="dim-hint">must be multiples of 16 · max 2048 · max ~4MP total</div>
                             </div>
                         )}
 
