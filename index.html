@@ -1185,7 +1185,7 @@
             return r.json();
         };
 
-        setStatusMsg("mj is creating...");
+        setStatusMsg("mj is working...");
         const gridResult = await poll(
             () => fetchTask(taskId),
             r => r.status === "SUCCESS" || r.status === "FAILURE",
@@ -1479,10 +1479,8 @@
 
                 if (provider === "midjourney") {
                     imgs.push(...await genMidjourney(db, cfg));
-                } else if (provider === "bria") {
-                    imgs.push(...await genBria(db, cfg));
                 } else {
-                    const names = { gemini: "gemini", openai: "openai", flux: "flux" };
+                    const names = { gemini: "gemini", openai: "openai", flux: "flux", bria: "Bria"};
                     for (let i = 0; i < batchSize; i++) {
                         if (controller.signal.aborted) break;
                         const n = names[provider] || "model";
@@ -1492,6 +1490,7 @@
                         if (provider === "gemini") img = await genGemini(db, cfg);
                         if (provider === "openai") img = await genOpenAI(db, cfg);
                         if (provider === "flux") img = await genFlux(db, cfg);
+                        if (provider === "bria") img = await genBria(db, cfg);
                         if (img) imgs.push(img);
                     }
                 }
