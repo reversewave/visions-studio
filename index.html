@@ -1005,11 +1005,10 @@
     }, {});
 
     /* ── Flux dimension helpers ── */
-    const snapTo16 = v => Math.round(v / 16) * 16;
     const clampFluxDim = v => {
         let n = parseInt(v) || 1024;
-        n = snapTo16(n);
-        return Math.max(64, Math.min(2048, n));
+        n = Math.round(n / 16) * 16;
+        return Math.max(256, Math.min(2048, n));
     };
 
     /* ── DB & utilities ── */
@@ -1041,10 +1040,12 @@
     const urlToDataUrl = async url => {
         try {
             const res = await fetch(url);
+            if (!res.ok) return url;
             const blob = await res.blob();
-            return new Promise(resolve => {
+            return new Promise((resolve, reject) => {
                 const r = new FileReader();
                 r.onload = () => resolve(r.result);
+                r.onerror = () => resolve(url);
                 r.readAsDataURL(blob);
             });
         } catch {
@@ -1118,25 +1119,45 @@
 
     /* ── Provider: OpenAI ── */
     const genOpenAI = async (db, { apiKey, model, prompt, openaiSize, signal }) => {
-        const body = { model, prompt, n: 1, response_format: "b64_json" };
-        if (openaiSize) body.size = openaiSize;
-        const res = await fetch("https://api.cometapi.com/v1/images/generations", {
+        const body = { 
+            model, 
+            prompt, 
+            n: 1, 
+            size: openaiSize || "1024x1024",
+            response_format: "b64_json" 
+        };
+        
+        const res = await fetch("https://api.cometapi.com/api/image/openai/images", {
             method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-            body: JSON.stringify(body), signal
+            headers: { 
+                "Content-Type": "application/json", 
+                "Authorization": `Bearer ${apiKey}` 
+            },
+            body: JSON.stringify(body), 
+            signal
         });
+
         if (!res.ok) {
-            const d = await res.json().catch(() => ({}));
-            throw new Error(d.error?.message || `API ERROR: ${res.status}`);
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error?.message || `API ERROR: ${res.status}`);
         }
+
         const data = await res.json();
         const item = data?.data?.[0];
         if (!item) return null;
+
         let src;
-        if (item.b64_json) src = `data:image/png;base64,${item.b64_json}`;
-        else if (item.url) src = await urlToDataUrl(item.url);
+        if (item.b64_json) {
+            src = `data:image/png;base64,${item.b64_json}`;
+        } else if (item.url) {
+            src = await urlToDataUrl(item.url);
+        }
+
         return src ? saveImg(db, src, prompt, {
-            model, modelLabel: MODEL_MAP[model]?.label, provider: "openai", size: openaiSize
+            model, 
+            modelLabel: MODEL_MAP[model]?.label || "OpenAI", 
+            provider: "openai", 
+            size: openaiSize
         }) : null;
     };
 
@@ -1208,14 +1229,17 @@
 
     /* ── Provider: Bria ── */
     const genBria = async (db, { apiKey, prompt, negativePrompt, ratio, batchSize, signal }) => {
-        const body = { prompt, num_results: batchSize, aspect_ratio: ratio };
+        const body = { prompt, num_results: batchSize, aspect_ratio: ratio, sync: true };
         if (negativePrompt && negativePrompt.trim()) body.negative_prompt = negativePrompt.trim();
         const res = await fetch("https://api.cometapi.com/bria/text-to-image", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
             body: JSON.stringify(body), signal
         });
-        if (!res.ok) throw new Error(`API ERROR: ${res.status}`);
+        if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            throw new Error(d.error?.message || `API ERROR: ${res.status}`);
+        }
         const data = await res.json();
         const results = [];
         for (const item of (data?.result || [])) {
@@ -1228,37 +1252,44 @@
     };
 
     /* ── Provider: Flux ── */
-    const genFlux = async (db, { apiKey, model, prompt, fluxWidth, fluxHeight, signal, setStatusMsg }) => {
-        const width = clampFluxDim(fluxWidth);
-        const height = clampFluxDim(fluxHeight);
-        setStatusMsg("submitting to flux...");
-        const submitRes = await fetch(`https://api.cometapi.com/flux/v1/${model}`, {
+    const genFlux = async (db, { apiKey, model, prompt, fluxWidth, fluxHeight, signal }) => {
+        const body = { 
+            model: model || "flux-2-max",
+            prompt, 
+            width: parseInt(fluxWidth) || 1024, 
+            height: parseInt(fluxHeight) || 1024 
+        };
+
+        const res = await fetch("https://api.cometapi.com/api/image/flux/flux-generate-image", {
             method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-            body: JSON.stringify({ prompt, width, height, output_format: "png" }),
+            headers: { 
+                "Content-Type": "application/json", 
+                "Authorization": `Bearer ${apiKey}` 
+            },
+            body: JSON.stringify(body),
             signal
         });
-        if (!submitRes.ok) throw new Error(`API ERROR: ${submitRes.status}`);
-        const submitData = await submitRes.json();
-        const fluxId = submitData.id;
-        if (!fluxId) throw new Error("flux returned no task id");
 
-        setStatusMsg("waiting on flux...");
-        const resultData = await poll(
-            async () => {
-                const r = await fetch(`https://api.cometapi.com/flux/v1/get_result?id=${fluxId}`, {
-                    headers: { "Authorization": `Bearer ${apiKey}` }, signal
-                });
-                return r.json();
-            },
-            r => r.status === "Ready" || r.status === "Error",
-            3000, signal, 60
-        );
-        if (resultData.status === "Error") throw new Error("flux generation failed");
-        const imageUrl = resultData?.result?.sample;
-        if (!imageUrl) return null;
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || `API ERROR: ${res.status}`);
+        }
+
+        const data = await res.json();
+        
+        const imageUrl = data?.data?.[0]?.url || data?.result?.sample || data?.url;
+        
+        if (!imageUrl) {
+            throw new Error("no image url returned from flux api");
+        }
+
         const src = await urlToDataUrl(imageUrl);
-        return saveImg(db, src, prompt, { model, modelLabel: MODEL_MAP[model]?.label, provider: "flux", size: `${width}×${height}` });
+        return saveImg(db, src, prompt, { 
+            model, 
+            modelLabel: "Flux 2 Max", 
+            provider: "flux", 
+            size: `${fluxWidth}x${fluxHeight}` 
+        });
     };
 
     /* ── Confirm component ── */
@@ -1618,14 +1649,33 @@
 
                         {provider === "flux" && (
                             <div className="field">
-                                <label className="label">dimensions (px)</label>
+                                <label className="label">custom size (multiples of 16, max 2048x2048)</label>
                                 <div className="inp-row">
-                                    <input type="number" className="inp" placeholder="width" min="64" max="2048" step="16"
-                                        value={fluxWidth} onChange={e => setFluxWidth(e.target.value)} onBlur={handleFluxDimBlur(setFluxWidth)} />
-                                    <input type="number" className="inp" placeholder="height" min="64" max="2048" step="16"
-                                        value={fluxHeight} onChange={e => setFluxHeight(e.target.value)} onBlur={handleFluxDimBlur(setFluxHeight)} />
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                                        <span style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'lowercase' }}>Width</span>
+                                        <input 
+                                            type="number" 
+                                            className="inp" 
+                                            step="16" 
+                                            min="256"
+                                            max="2048"
+                                            value={fluxWidth} 
+                                            onChange={e => setFluxWidth(e.target.value)} 
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                                        <span style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'lowercase' }}>Height</span>
+                                        <input 
+                                            type="number" 
+                                            className="inp" 
+                                            step="16" 
+                                            min="256"
+                                            max="2048"
+                                            value={fluxHeight} 
+                                            onChange={e => setFluxHeight(e.target.value)} 
+                                        />
+                                    </div>
                                 </div>
-                                <div className="dim-hint">must be multiples of 16 · max 2048 · max ~4MP total</div>
                             </div>
                         )}
 
