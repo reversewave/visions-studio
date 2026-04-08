@@ -979,7 +979,6 @@
     const MODELS = [
         { id: "gemini-3-pro-image",             label: "Gemini 3 Pro Image",  group: "Gemini",     provider: "gemini" },
         { id: "gemini-3.1-flash-image-preview", label: "Gemini 3.1 Flash",    group: "Gemini",     provider: "gemini" },
-        { id: "dall-e-3",                       label: "DALL-E 3",            group: "OpenAI",     provider: "openai" },
         { id: "gpt-image-1.5",                  label: "GPT Image 1.5",       group: "OpenAI",     provider: "openai" },
         { id: "midjourney",                     label: "Midjourney",           group: "Midjourney", provider: "midjourney" },
         { id: "bria/image-3.2",                 label: "Bria 3.2",            group: "Bria",       provider: "bria" },
@@ -989,7 +988,6 @@
     const MODEL_MAP = Object.fromEntries(MODELS.map(m => [m.id, m]));
 
     const OPENAI_SIZES = {
-        "dall-e-3":         ["1024x1024", "1792x1024", "1024x1792"],
         "gpt-image-1.5":    ["1024x1024", "1536x1024", "1024x1536"],
     };
 
