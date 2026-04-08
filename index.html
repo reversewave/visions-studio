@@ -1123,16 +1123,13 @@
             model, 
             prompt, 
             n: 1, 
-            size: openaiSize || "1024x1024",
-            response_format: "b64_json" 
+            size: openaiSize || "1024x1024"
         };
         
-        // Added 'www' to match the redirect destination exactly
-        const res = await fetch("https://www.cometapi.com/v1/images/generations", {
+        const res = await fetch("https://api.cometapi.com/v1/images/generations", {
             method: "POST",
             headers: { 
-                "Content-Type": "application/json", 
-                "Authorization": `Bearer ${apiKey}` 
+                "Authorization": `Bearer ${apiKey}`
             },
             body: JSON.stringify(body), 
             signal
@@ -1147,9 +1144,7 @@
         const item = data?.data?.[0];
         if (!item) return null;
 
-        let src = item.b64_json ? `data:image/png;base64,${item.b64_json}` : null;
-        if (!src && item.url) src = await urlToDataUrl(item.url);
-
+        const src = await urlToDataUrl(item.url || item.b64_json);
         return src ? saveImg(db, src, prompt, {
             model, 
             modelLabel: MODEL_MAP[model]?.label || "OpenAI", 
@@ -1256,11 +1251,10 @@
             height: parseInt(fluxHeight) || 1024 
         };
 
-        const res = await fetch("https://www.cometapi.com/flux/v1/submit", {
+        const res = await fetch("https://api.cometapi.com/flux/v1/submit", {
             method: "POST",
             headers: { 
-                "Content-Type": "application/json", 
-                "Authorization": `Bearer ${apiKey}` 
+                "Authorization": `Bearer ${apiKey}`
             },
             body: JSON.stringify(body),
             signal
@@ -1272,21 +1266,21 @@
         }
 
         const data = await res.json();
-        
-        const taskId = data.id;
+        const taskId = data.id || data.task_id;
         if (!taskId) throw new Error("no task id returned from flux");
 
         while (true) {
             if (signal?.aborted) throw new Error("Aborted");
             
-            const pollRes = await fetch(`https://www.cometapi.com/flux/v1/status?id=${taskId}`, {
+            const pollRes = await fetch(`https://api.cometapi.com/flux/v1/status?id=${taskId}`, {
                 headers: { "Authorization": `Bearer ${apiKey}` },
                 signal
             });
             const r = await pollRes.json();
 
-            if (r.status === "Ready" || r.status === "Succeeded" || r.status === "ready") {
-                const src = await urlToDataUrl(r.result || r.sample || r.url);
+            if (r.status?.toLowerCase() === "ready" || r.status?.toLowerCase() === "succeeded") {
+                const imageUrl = r.result || r.sample || r.url;
+                const src = await urlToDataUrl(imageUrl);
                 return saveImg(db, src, prompt, { 
                     model, 
                     modelLabel: "Flux 2 Max", 
@@ -1294,10 +1288,9 @@
                     size: `${fluxWidth}x${fluxHeight}` 
                 });
             }
-            if (r.status === "Failed" || r.status === "Error") {
-                throw new Error("Flux generation failed");
+            if (r.status?.toLowerCase() === "failed" || r.status?.toLowerCase() === "error") {
+                throw new Error("flux generation failed");
             }
-
             await new Promise(rh => setTimeout(rh, 2000));
         }
     };
