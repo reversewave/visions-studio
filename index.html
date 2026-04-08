@@ -8,7 +8,7 @@
     <link rel="apple-touch-icon" href="https://file.garden/ZoJwS5NTJ2m5IEiz/vision-8mc6a2uk.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Visions">
+    <meta name="apple-mobile-web-app-title" content="Visions Studio">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#08080e">
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -1007,26 +1007,24 @@
     /* ── Flux dimension helpers ── */
     const clampFluxDim = v => {
         let n = parseInt(v) || 1024;
-        
         if (n > 2048) n = 2048;
         if (n < 64) n = 64;
-        
-        n = Math.round(n / 16) * 16;
-        
+        n = Math.round(n / 32) * 32;
         return Math.min(2048, n);
     };
 
     /* ── DB & utilities ── */
-    const DB_NAME = "VisionsStudio_Final_Gold_V12_Clean";
+    const DB_NAME = "VisionsStudio";
     const STORE = "images";
 
-    const initDB = () => new Promise(resolve => {
+    const initDB = () => new Promise((resolve, reject) => {
         const req = indexedDB.open(DB_NAME, 1);
         req.onupgradeneeded = e => {
             if (!e.target.result.objectStoreNames.contains(STORE))
                 e.target.result.createObjectStore(STORE, { keyPath: "id" });
         };
         req.onsuccess = e => resolve(e.target.result);
+        req.onerror = () => reject(new Error("couldn't open local storage. private browsing mode might be blocking it"));
     });
 
     const parseError = (raw, type = "api") => {
@@ -1035,9 +1033,12 @@
             if (s.includes("KEY & PROMPT")) return { type: "app", title: "hold on", detail: "you need an api key and a prompt before anything happens" };
             return { type: "app", title: "oops", detail: s || "something went wrong on our end" };
         }
+        if (s.includes("400")) return { type: "api", title: "bad request", detail: "something in the request was invalid. check your prompt and settings" };
         if (s.includes("401")) return { type: "api", title: "bad key", detail: "that key got rejected. double check it's correct and still active" };
-        if (s.includes("429")) return { type: "api", title: "slow down", detail: "hit a rate limit. wait a sec and try again" };
         if (s.includes("403")) return { type: "api", title: "no access", detail: "your key might not have permission for this model" };
+        if (s.includes("413")) return { type: "api", title: "too large", detail: "the request was too big, probably a reference image. try a smaller one" };
+        if (s.includes("429")) return { type: "api", title: "slow down", detail: "hit a rate limit. wait a sec and try again" };
+        if (s.includes("503") || s.includes("504") || s.includes("524")) return { type: "api", title: "server down", detail: "the api is overloaded or temporarily unavailable. wait a minute and try again" };
         if (s.includes("500")) return { type: "api", title: "server error", detail: "something broke on the api side. not you, try again" };
         return { type: "api", title: "something broke", detail: s || "no details available" };
     };
@@ -1108,7 +1109,7 @@
         });
         if (!res.ok) {
             const d = await res.json().catch(() => ({}));
-            throw new Error(d.error?.message || `API ERROR: ${res.status}`);
+            throw new Error(`${res.status}: ${d.error?.message || "unknown error"}`);
         }
         const data = await res.json();
         const b64 = data?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
@@ -1124,36 +1125,40 @@
 
     /* ── Provider: OpenAI ── */
     const genOpenAI = async (db, { apiKey, model, prompt, openaiSize, signal }) => {
-        const body = { 
-            model, 
-            prompt, 
-            n: 1, 
+        const body = {
+            model,
+            prompt,
+            n: 1,
             size: openaiSize || "1024x1024"
         };
-        
+
         const res = await fetch("https://api.cometapi.com/v1/images/generations", {
             method: "POST",
-            headers: { 
+            headers: {
+                "Content-Type": "application/json",
                 "Authorization": `Bearer ${apiKey}`
             },
-            body: JSON.stringify(body), 
+            body: JSON.stringify(body),
             signal
         });
 
         if (!res.ok) {
             const errorData = await res.json().catch(() => ({}));
-            throw new Error(errorData.error?.message || `API ERROR: ${res.status}`);
+            throw new Error(`${res.status}: ${errorData.error?.message || "unknown error"}`);
         }
 
         const data = await res.json();
         const item = data?.data?.[0];
         if (!item) return null;
 
-        const src = await urlToDataUrl(item.url || item.b64_json);
+        const src = item.b64_json
+            ? `data:image/png;base64,${item.b64_json}`
+            : await urlToDataUrl(item.url);
+
         return src ? saveImg(db, src, prompt, {
-            model, 
-            modelLabel: MODEL_MAP[model]?.label || "OpenAI", 
-            provider: "openai", 
+            model,
+            modelLabel: MODEL_MAP[model]?.label || "OpenAI",
+            provider: "openai",
             size: openaiSize
         }) : null;
     };
@@ -1167,7 +1172,10 @@
             body: JSON.stringify({ botType: "MID_JOURNEY", prompt, accountFilter: { modes: ["FAST"] } }),
             signal
         });
-        if (!submitRes.ok) throw new Error(`API ERROR: ${submitRes.status}`);
+        if (!submitRes.ok) {
+            const err = await submitRes.json().catch(() => ({}));
+            throw new Error(`${submitRes.status}: ${err.error?.message || "unknown error"}`);
+        }
         const submitData = await submitRes.json();
         const taskId = submitData.result;
         if (!taskId) throw new Error("midjourney returned no task id");
@@ -1207,7 +1215,10 @@
                 body: JSON.stringify({ taskId, customId: btn.customId }),
                 signal
             });
-            if (!actionRes.ok) continue;
+            if (!actionRes.ok) {
+                const err = await actionRes.json().catch(() => ({}));
+                throw new Error(`${actionRes.status}: ${err.error?.message || "unknown error"}`);
+            }
             const actionData = await actionRes.json();
             const upscaleId = actionData.result;
             if (!upscaleId) continue;
@@ -1235,7 +1246,7 @@
         });
         if (!res.ok) {
             const d = await res.json().catch(() => ({}));
-            throw new Error(d.error?.message || `API ERROR: ${res.status}`);
+            throw new Error(`${res.status}: ${d.error?.message || "unknown error"}`);
         }
         const data = await res.json();
         const results = [];
@@ -1250,15 +1261,16 @@
 
     /* ── Provider: Flux ── */
     const genFlux = async (db, { apiKey, model, prompt, fluxWidth, fluxHeight, signal }) => {
-        const body = { 
-            prompt, 
-            width: parseInt(fluxWidth) || 1024, 
-            height: parseInt(fluxHeight) || 1024 
+        const body = {
+            prompt,
+            width: parseInt(fluxWidth) || 1024,
+            height: parseInt(fluxHeight) || 1024
         };
 
-        const res = await fetch("https://api.cometapi.com/flux/v1/submit", {
+        const res = await fetch(`https://api.cometapi.com/flux/v1/${model}`, {
             method: "POST",
-            headers: { 
+            headers: {
+                "Content-Type": "application/json",
                 "Authorization": `Bearer ${apiKey}`
             },
             body: JSON.stringify(body),
@@ -1267,30 +1279,35 @@
 
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            throw new Error(err.message || `API ERROR: ${res.status}`);
+            throw new Error(`${res.status}: ${err.error?.message || "unknown error"}`);
         }
 
         const data = await res.json();
-        const taskId = data.id || data.task_id;
+        const taskId = data.id;
         if (!taskId) throw new Error("no task id returned from flux");
 
-        while (true) {
-            if (signal?.aborted) throw new Error("Aborted");
-            
-            const pollRes = await fetch(`https://api.cometapi.com/flux/v1/status?id=${taskId}`, {
+        const MAX_ATTEMPTS = 60;
+        let attempts = 0;
+
+        while (attempts < MAX_ATTEMPTS) {
+            if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+            attempts++;
+
+            const pollRes = await fetch(`https://api.cometapi.com/flux/v1/get_result?id=${taskId}`, {
                 headers: { "Authorization": `Bearer ${apiKey}` },
                 signal
             });
             const r = await pollRes.json();
 
-            if (r.status?.toLowerCase() === "ready" || r.status?.toLowerCase() === "succeeded") {
-                const imageUrl = r.result || r.sample || r.url;
+            if (r.status?.toLowerCase() === "ready") {
+                const imageUrl = r.result?.sample;
+                if (!imageUrl) throw new Error("flux returned no image url");
                 const src = await urlToDataUrl(imageUrl);
-                return saveImg(db, src, prompt, { 
-                    model, 
-                    modelLabel: "Flux 2 Max", 
-                    provider: "flux", 
-                    size: `${fluxWidth}x${fluxHeight}` 
+                return saveImg(db, src, prompt, {
+                    model,
+                    modelLabel: "Flux 2 Max",
+                    provider: "flux",
+                    size: `${fluxWidth}x${fluxHeight}`
                 });
             }
             if (r.status?.toLowerCase() === "failed" || r.status?.toLowerCase() === "error") {
@@ -1298,6 +1315,8 @@
             }
             await new Promise(rh => setTimeout(rh, 2000));
         }
+
+        throw new Error("timed out waiting for flux. the model might be busy, try again");
     };
 
     /* ── Confirm component ── */
@@ -1449,7 +1468,15 @@
             setStatusMsg("generating...");
             const cfg = { apiKey, model, prompt, ratio, size, openaiSize, refImages, batchSize, negativePrompt, fluxWidth, fluxHeight, signal: controller.signal, setStatusMsg };
             try {
-                const db = await initDB();
+                let db;
+                try {
+                    db = await initDB();
+                } catch (dbErr) {
+                    setError({ type: "app", title: "storage error", detail: dbErr.message });
+                    setLoading(false);
+                    setStatusMsg("");
+                    return;
+                }
                 const imgs = [];
 
                 if (provider === "midjourney") {
