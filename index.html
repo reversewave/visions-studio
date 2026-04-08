@@ -1007,8 +1007,13 @@
     /* ── Flux dimension helpers ── */
     const clampFluxDim = v => {
         let n = parseInt(v) || 1024;
+        
+        if (n > 2048) n = 2048;
+        if (n < 64) n = 64;
+        
         n = Math.round(n / 16) * 16;
-        return Math.max(256, Math.min(2048, n));
+        
+        return Math.min(2048, n);
     };
 
     /* ── DB & utilities ── */
@@ -1655,27 +1660,35 @@
                                 <label className="label">custom size (multiples of 16, max 2048x2048)</label>
                                 <div className="inp-row">
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                                        <span style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'lowercase' }}>Width</span>
+                                        <span style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'uppercase' }}>Width</span>
                                         <input 
                                             type="number" 
                                             className="inp" 
                                             step="16" 
-                                            min="256"
+                                            min="64"
                                             max="2048"
                                             value={fluxWidth} 
-                                            onChange={e => setFluxWidth(e.target.value)} 
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setFluxWidth(val > 2048 ? 2048 : val);
+                                            }}
+                                            onBlur={() => setFluxWidth(clampFluxDim(fluxWidth))}
                                         />
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                                        <span style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'lowercase' }}>Height</span>
+                                        <span style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'uppercase' }}>Height</span>
                                         <input 
                                             type="number" 
                                             className="inp" 
                                             step="16" 
-                                            min="256"
+                                            min="64"
                                             max="2048"
                                             value={fluxHeight} 
-                                            onChange={e => setFluxHeight(e.target.value)} 
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setFluxHeight(val > 2048 ? 2048 : val);
+                                            }}
+                                            onBlur={() => setFluxHeight(clampFluxDim(fluxHeight))}
                                         />
                                     </div>
                                 </div>
