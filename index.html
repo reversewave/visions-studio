@@ -1610,7 +1610,9 @@
 
                         {provider === "gemini" && (
                             <div className="field">
-                                <label className="label">dimensions</label>
+                                <label className="label">
+                                    {isGeminiFlash ? "ratio" : "dimensions"}
+                                </label>
                                 {isGeminiFlash ? (
                                     <select className="inp" value={ratio} onChange={e => setRatio(e.target.value)}>
                                         {GEMINI_FLASH_RATIOS.map(r => <option key={r} value={r}>{r}</option>)}
