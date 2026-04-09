@@ -1137,6 +1137,7 @@
             ratio: meta.ratio || null,
             size: meta.size || null,
             negativePrompt: meta.negativePrompt || null,
+            seed: meta.seed || null,
         };
         db.transaction(STORE, "readwrite").objectStore(STORE).add(img);
         return img;
@@ -1220,12 +1221,17 @@
     };
 
     /* ── Provider: Midjourney ── */
-    const genMidjourney = async (db, { apiKey, prompt, batchSize, signal, setStatusMsg }) => {
+    const genMidjourney = async (db, { apiKey, prompt, batchSize, mjSpeed, signal, setStatusMsg }) => {
         setStatusMsg("submitting to mj...");
-        const submitRes = await fetch("https://api.cometapi.com/mj/submit/imagine", {
+        const baseUrl = mjSpeed === "turbo"
+            ? "https://api.cometapi.com/mj-turbo/mj/submit/imagine"
+            : mjSpeed === "relax"
+            ? "https://api.cometapi.com/mj/submit/imagine"
+            : "https://api.cometapi.com/mj-fast/mj/submit/imagine";
+        const submitRes = await fetch(baseUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-            body: JSON.stringify({ botType: "MID_JOURNEY", prompt, accountFilter: { modes: ["FAST"] } }),
+            body: JSON.stringify({ botType: "MID_JOURNEY", prompt }),
             signal
         });
         if (!submitRes.ok) {
@@ -1292,9 +1298,10 @@
     };
 
     /* ── Provider: Bria ── */
-    const genBria = async (db, { apiKey, prompt, negativePrompt, ratio, batchSize, signal }) => {
-        const body = { prompt, num_results: batchSize, aspect_ratio: ratio, sync: true };
+    const genBria = async (db, { apiKey, prompt, negativePrompt, ratio, batchSize, briaSteps, briaGuidance, briaSeed, signal }) => {
+        const body = { prompt, num_results: batchSize, aspect_ratio: ratio, sync: true, steps_num: briaSteps, text_guidance_scale: briaGuidance };
         if (negativePrompt && negativePrompt.trim()) body.negative_prompt = negativePrompt.trim();
+        if (briaSeed !== "" && !isNaN(parseInt(briaSeed))) body.seed = parseInt(briaSeed);
         const res = await fetch("https://api.cometapi.com/bria/text-to-image", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
@@ -1309,7 +1316,7 @@
         for (const item of (data?.result || [])) {
             for (const url of (item.urls || [])) {
                 const src = await urlToDataUrl(url);
-                results.push(saveImg(db, src, prompt, { model: "bria/image-3.2", modelLabel: "Bria 3.2", provider: "bria", ratio, negativePrompt }));
+                results.push(saveImg(db, src, prompt, { model: "bria/image-3.2", modelLabel: "Bria 3.2", provider: "bria", ratio, negativePrompt, seed: item.seed || null }));
             }
         }
         return results;
@@ -1320,7 +1327,8 @@
         const body = {
             prompt,
             width: parseInt(fluxWidth) || 1024,
-            height: parseInt(fluxHeight) || 1024
+            height: parseInt(fluxHeight) || 1024,
+            prompt_upsampling: true
         };
 
         const res = await fetch(`https://api.cometapi.com/flux/v1/${model}`, {
@@ -1363,7 +1371,8 @@
                     model,
                     modelLabel: "Flux 2 Max",
                     provider: "flux",
-                    size: `${fluxWidth}x${fluxHeight}`
+                    size: `${fluxWidth}x${fluxHeight}`,
+                    seed: r.result?.seed || null
                 });
             }
             if (r.status?.toLowerCase() === "failed" || r.status?.toLowerCase() === "error") {
@@ -1419,6 +1428,10 @@
         const [negPromptOpen, setNegPromptOpen] = useState(false);
         const [fluxWidth, setFluxWidth] = useState(1024);
         const [fluxHeight, setFluxHeight] = useState(1024);
+        const [briaSteps, setBriaSteps] = useState(30);
+        const [briaGuidance, setBriaGuidance] = useState(5);
+        const [briaSeed, setBriaSeed] = useState("");
+        const [mjSpeed, setMjSpeed] = useState("fast");
 
         useEffect(() => {
             if (selectedIds.length === 0) setLastId(null);
@@ -1529,7 +1542,7 @@
             setLoading(true);
             setError(null);
             setStatusMsg("generating...");
-            const cfg = { apiKey, model, prompt, ratio, size, openaiSize, refImages, batchSize, negativePrompt, fluxWidth, fluxHeight, signal: controller.signal, setStatusMsg };
+            const cfg = { apiKey, model, prompt, ratio, size, openaiSize, refImages, batchSize, negativePrompt, fluxWidth, fluxHeight, briaSteps, briaGuidance, briaSeed, mjSpeed, signal: controller.signal, setStatusMsg };
             try {
                 let db;
                 try {
@@ -1731,61 +1744,71 @@
                         )}
 
                         {provider === "bria" && (
-                            <div className="field">
-                                <label className="label">ratio</label>
-                                <select className="inp" value={ratio} onChange={e => setRatio(e.target.value)}>
-                                    {BRIA_RATIOS.map(r => <option key={r} value={r}>{r}</option>)}
-                                </select>
-                            </div>
+                            <>
+                                <div className="field">
+                                    <label className="label">ratio</label>
+                                    <select className="inp" value={ratio} onChange={e => setRatio(e.target.value)}>
+                                        {BRIA_RATIOS.map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
+                                <div className="inp-row">
+                                    <div className="field">
+                                        <label className="label">steps</label>
+                                        <input type="number" className="inp" min="1" max="50" value={briaSteps}
+                                            onChange={e => setBriaSteps(Math.min(50, Math.max(1, parseInt(e.target.value) || 30)))} />
+                                    </div>
+                                    <div className="field">
+                                        <label className="label">guidance</label>
+                                        <input type="number" className="inp" min="1" max="10" value={briaGuidance}
+                                            onChange={e => setBriaGuidance(Math.min(10, Math.max(1, parseInt(e.target.value) || 5)))} />
+                                    </div>
+                                </div>
+                                <div className="field">
+                                    <label className="label">seed <span style={{ color: "var(--text3)", fontWeight: 400 }}>optional</span></label>
+                                    <input type="number" className="inp" placeholder="leave blank for random"
+                                        value={briaSeed} onChange={e => setBriaSeed(e.target.value)} />
+                                </div>
+                            </>
                         )}
 
                         {provider === "flux" && (
-                            <div className="field">
-                                <label className="label">custom size (multiples of 16, max 2048x2048)</label>
-                                <div className="inp-row">
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                                        <span style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'uppercase' }}>Width</span>
-                                        <input 
-                                            type="number" 
-                                            className="inp" 
-                                            step="16" 
-                                            min="64"
-                                            max="2048"
-                                            value={fluxWidth} 
-                                            onChange={e => {
-                                                const val = e.target.value;
-                                                setFluxWidth(val > 2048 ? 2048 : val);
-                                            }}
-                                            onBlur={() => setFluxWidth(clampFluxDim(fluxWidth))}
-                                        />
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                                        <span style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'uppercase' }}>Height</span>
-                                        <input 
-                                            type="number" 
-                                            className="inp" 
-                                            step="16" 
-                                            min="64"
-                                            max="2048"
-                                            value={fluxHeight} 
-                                            onChange={e => {
-                                                const val = e.target.value;
-                                                setFluxHeight(val > 2048 ? 2048 : val);
-                                            }}
-                                            onBlur={() => setFluxHeight(clampFluxDim(fluxHeight))}
-                                        />
+                            <>
+                                <div className="field">
+                                    <label className="label">custom size <span style={{ color: "var(--text3)", fontWeight: 400 }}>multiples of 32, max 2048</span></label>
+                                    <div className="inp-row">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                                            <span style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'uppercase' }}>Width</span>
+                                            <input type="number" className="inp" step="32" min="64" max="2048" value={fluxWidth}
+                                                onChange={e => setFluxWidth(Math.min(2048, parseInt(e.target.value) || 1024))}
+                                                onBlur={() => setFluxWidth(clampFluxDim(fluxWidth))} />
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                                            <span style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'uppercase' }}>Height</span>
+                                            <input type="number" className="inp" step="32" min="64" max="2048" value={fluxHeight}
+                                                onChange={e => setFluxHeight(Math.min(2048, parseInt(e.target.value) || 1024))}
+                                                onBlur={() => setFluxHeight(clampFluxDim(fluxHeight))} />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
                         )}
 
                         {provider === "midjourney" && (
-                            <div className="flash-warn">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                                </svg>
-                                use --ar in your prompt for ratio. batch count = how many get upscaled
-                            </div>
+                            <>
+                                <div className="field">
+                                    <label className="label">speed</label>
+                                    <select className="inp" value={mjSpeed} onChange={e => setMjSpeed(e.target.value)}>
+                                        <option value="fast">fast</option>
+                                        <option value="turbo">turbo</option>
+                                        <option value="relax">relax</option>
+                                    </select>
+                                </div>
+                                <div className="flash-warn">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                                    </svg>
+                                    use --ar in your prompt for ratio. batch count = how many get upscaled
+                                </div>
+                            </>
                         )}
 
                         {provider === "gemini" && (
@@ -2009,6 +2032,15 @@
                                                 <div className="info-block">
                                                     <div className="info-label">resolution</div>
                                                     <div className="info-value">{viewImage.size}</div>
+                                                </div>
+                                            )}
+                                            {(viewImage.provider === "bria" || viewImage.provider === "flux") && viewImage.seed && (
+                                                <div className="info-block">
+                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                        <div className="info-label">seed</div>
+                                                        <button className="info-copy-btn" onClick={e => copyPrompt(String(viewImage.seed), e)}>copy</button>
+                                                    </div>
+                                                    <div className="info-value" style={{ userSelect: "text", WebkitUserSelect: "text" }}>{viewImage.seed}</div>
                                                 </div>
                                             )}
                                         </div>
