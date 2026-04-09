@@ -1118,9 +1118,9 @@
         return saveImg(db, `data:image/png;base64,${b64}`, prompt, {
             model,
             modelLabel: MODEL_MAP[model]?.label,
-            provider: "bria",
+            provider: "gemini",
             ratio,
-            negativePrompt: negativePrompt 
+            size: isFlash ? null : size
         });
     };
 
