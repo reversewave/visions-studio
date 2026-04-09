@@ -966,7 +966,60 @@
             .ref-thumb-rm { opacity: 1; background: rgba(0,0,0,0.5); }
             .img-card:hover { border-color: var(--border); box-shadow: none; transform: none; }
             .info-thumb { height: 140px; }
+            .neg-prompt-icon { width: 20px; height: 20px; }
         }
+
+        .neg-prompt-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: 'Figtree', sans-serif;
+            font-size: 10.5px;
+            font-weight: 600;
+            color: var(--text3);
+            letter-spacing: 0.05em;
+            text-transform: lowercase;
+            padding: 0;
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .neg-prompt-toggle:hover { color: var(--text2); }
+
+        .neg-prompt-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 1px solid var(--border3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            line-height: 1;
+            color: var(--text3);
+            transition: transform 0.2s var(--ease2), border-color 0.2s var(--ease2), color 0.2s var(--ease2);
+            flex-shrink: 0;
+        }
+
+        .neg-prompt-icon.open {
+            transform: rotate(45deg);
+            border-color: var(--purple);
+            color: var(--purple);
+        }
+
+        .neg-prompt-body {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.25s var(--ease2);
+        }
+
+        .neg-prompt-body.open { grid-template-rows: 1fr; }
+
+        .neg-prompt-inner { overflow: hidden; }
+        .neg-prompt-inner textarea { margin-top: 8px; }
     </style>
 </head>
 <body>
@@ -1083,6 +1136,7 @@
             provider: meta.provider || null,
             ratio: meta.ratio || null,
             size: meta.size || null,
+            negativePrompt: meta.negativePrompt || null,
         };
         db.transaction(STORE, "readwrite").objectStore(STORE).add(img);
         return img;
@@ -1115,6 +1169,7 @@
             const txt = data?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
             throw new Error(txt ? `model returned text instead of image: "${txt.slice(0, 120)}"` : "model returned no image, try a different prompt");
         }
+
         return saveImg(db, `data:image/png;base64,${b64}`, prompt, {
             model,
             modelLabel: MODEL_MAP[model]?.label,
@@ -1254,7 +1309,7 @@
         for (const item of (data?.result || [])) {
             for (const url of (item.urls || [])) {
                 const src = await urlToDataUrl(url);
-                results.push(saveImg(db, src, prompt, { model: "bria/image-3.2", modelLabel: "Bria 3.2", provider: "bria", ratio }));
+                results.push(saveImg(db, src, prompt, { model: "bria/image-3.2", modelLabel: "Bria 3.2", provider: "bria", ratio, negativePrompt }));
             }
         }
         return results;
@@ -1361,6 +1416,7 @@
         const [lastId, setLastId] = useState(null);
         const [lightboxSrc, setLightboxSrc] = useState(null);
         const [negativePrompt, setNegativePrompt] = useState("");
+        const [negPromptOpen, setNegPromptOpen] = useState(false);
         const [fluxWidth, setFluxWidth] = useState(1024);
         const [fluxHeight, setFluxHeight] = useState(1024);
 
@@ -1669,19 +1725,12 @@
                         )}
 
                         {provider === "bria" && (
-                            <>
-                                <div className="field">
-                                    <label className="label">ratio</label>
-                                    <select className="inp" value={ratio} onChange={e => setRatio(e.target.value)}>
-                                        {BRIA_RATIOS.map(r => <option key={r} value={r}>{r}</option>)}
-                                    </select>
-                                </div>
-                                <div className="field">
-                                    <label className="label">negative prompt <span style={{ fontWeight: 400, color: "var(--text3)", textTransform: "none", letterSpacing: 0 }}>optional</span></label>
-                                    <textarea className="inp" style={{ height: 72 }} placeholder="things to exclude from the image..."
-                                        value={negativePrompt} onChange={e => setNegativePrompt(e.target.value)} />
-                                </div>
-                            </>
+                            <div className="field">
+                                <label className="label">ratio</label>
+                                <select className="inp" value={ratio} onChange={e => setRatio(e.target.value)}>
+                                    {BRIA_RATIOS.map(r => <option key={r} value={r}>{r}</option>)}
+                                </select>
+                            </div>
                         )}
 
                         {provider === "flux" && (
@@ -1777,8 +1826,23 @@
                             <textarea className="inp" placeholder="describe it however you want..."
                                 value={prompt} onChange={e => setPrompt(e.target.value)} />
                         </div>
-                    </div>
 
+                        {provider === "bria" && (
+                            <div className="field">
+                                <button className="neg-prompt-toggle" onClick={() => setNegPromptOpen(p => !p)}>
+                                    negative prompt <span style={{ fontWeight: 400, color: "var(--text3)", textTransform: "none", letterSpacing: 0 }}>optional</span>
+                                    <span className={`neg-prompt-icon${negPromptOpen ? " open" : ""}`}>+</span>
+                                </button>
+                                <div className={`neg-prompt-body${negPromptOpen ? " open" : ""}`}>
+                                    <div className="neg-prompt-inner">
+                                        <textarea className="inp" style={{ height: 72 }} placeholder="things to exclude from the image..."
+                                            value={negativePrompt} onChange={e => setNegativePrompt(e.target.value)} />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                    </div>
                     <div className="sidebar-foot">
                         {error && (
                             <div className={`error-box ${error.type === "api" ? "error-api" : "error-app"}`}>
@@ -1900,16 +1964,6 @@
                                             <img src={viewImage.src} draggable="false" />
                                         </div>
 
-                                        {viewImage.provider === "bria" && viewImage.negativePrompt && (
-                                            <div className="info-block">
-                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                                    <div className="info-label">negative prompt</div>
-                                                    <button className="info-copy-btn" onClick={e => copyPrompt(viewImage.negativePrompt, e)}>copy</button>
-                                                </div>
-                                                <div className="info-prompt-box">{viewImage.negativePrompt}</div>
-                                            </div>
-                                        )}
-
                                         <div className="info-block">
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                                 <div className="info-label">prompt</div>
@@ -1919,6 +1973,16 @@
                                             </div>
                                             <div className="info-prompt-box">{viewImage.prompt || "no prompt saved"}</div>
                                         </div>
+
+                                        {viewImage.provider === "bria" && viewImage.negativePrompt && (
+                                            <div className="info-block">
+                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                    <div className="info-label">negative prompt</div>
+                                                    <button className="info-copy-btn" onClick={e => copyPrompt(viewImage.negativePrompt, e)}>copy</button>
+                                                </div>
+                                                <div className="info-prompt-box">{viewImage.negativePrompt}</div>
+                                            </div>
+                                        )}
 
                                         <div className="info-grid">
                                             <div className="info-block">
