@@ -1116,8 +1116,11 @@
             throw new Error(txt ? `model returned text instead of image: "${txt.slice(0, 120)}"` : "model returned no image, try a different prompt");
         }
         return saveImg(db, `data:image/png;base64,${b64}`, prompt, {
-            model, modelLabel: MODEL_MAP[model]?.label, provider: "gemini",
-            ratio, size: isFlash ? null : size
+            model,
+            modelLabel: MODEL_MAP[model]?.label,
+            provider: "bria",
+            ratio,
+            negativePrompt: negativePrompt 
         });
     };
 
@@ -1896,6 +1899,16 @@
                                         <div className="info-thumb">
                                             <img src={viewImage.src} draggable="false" />
                                         </div>
+
+                                        {viewImage.provider === "bria" && viewImage.negativePrompt && (
+                                            <div className="info-block">
+                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                    <div className="info-label">negative prompt</div>
+                                                    <button className="info-copy-btn" onClick={e => copyPrompt(viewImage.negativePrompt, e)}>copy</button>
+                                                </div>
+                                                <div className="info-prompt-box">{viewImage.negativePrompt}</div>
+                                            </div>
+                                        )}
 
                                         <div className="info-block">
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
