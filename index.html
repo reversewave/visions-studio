@@ -1496,7 +1496,10 @@
         const handleRefFiles = async e => {
             const files = Array.from(e.target.files || []);
             const converted = await Promise.all(files.map(toBase64));
-            setRefImages(prev => [...prev, ...converted]);
+            setRefImages(prev => {
+                const combined = [...prev, ...converted];
+                return combined.slice(0, 14);
+            });
             e.target.value = "";
         };
 
@@ -1509,7 +1512,10 @@
             const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
             if (!files.length) return;
             const converted = await Promise.all(files.map(toBase64));
-            setRefImages(prev => [...prev, ...converted]);
+            setRefImages(prev => {
+                const combined = [...prev, ...converted];
+                return combined.slice(0, 14);
+            });
         };
 
         const handleFluxDimBlur = (setter) => (e) => {
