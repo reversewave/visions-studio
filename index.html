@@ -1060,7 +1060,7 @@
         let n = parseInt(v) || 1024;
         if (n > 2048) n = 2048;
         if (n < 64) n = 64;
-        n = Math.round(n / 32) * 32;
+        n = Math.round(n / 16) * 16;
         return Math.min(2048, n);
     };
 
@@ -1774,11 +1774,11 @@
                         {provider === "flux" && (
                             <>
                                 <div className="field">
-                                    <label className="label">custom size <span style={{ color: "var(--text3)", fontWeight: 400 }}>multiples of 32, max 2048</span></label>
+                                    <label className="label">custom size <span style={{ color: "var(--text3)", fontWeight: 400 }}>multiples of 16, max 2048</span></label>
                                     <div className="inp-row">
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
                                             <span style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'uppercase' }}>Width</span>
-                                            <input type="number" className="inp" step="32" min="64" max="2048" value={fluxWidth}
+                                            <input type="number" className="inp" step="16" min="64" max="2048" value={fluxWidth}
                                                 onChange={e => setFluxWidth(Math.min(2048, parseInt(e.target.value) || 1024))}
                                                 onBlur={() => setFluxWidth(clampFluxDim(fluxWidth))} />
                                         </div>
