@@ -1020,6 +1020,82 @@
 
         .neg-prompt-inner { overflow: hidden; }
         .neg-prompt-inner textarea { margin-top: 8px; }
+
+        .reuse-modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgba(4,4,8,0.7);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: drawerOverlayIn 0.15s ease both;
+        }
+
+        .reuse-modal {
+            background: var(--surface);
+            border: 1px solid var(--border2);
+            border-radius: var(--r-lg);
+            padding: 20px;
+            width: 320px;
+            max-width: calc(100vw - 32px);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+        }
+
+        .reuse-modal-title {
+            font-family: 'Sora', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .reuse-modal-sub {
+            font-size: 12px;
+            color: var(--text3);
+            margin-top: -8px;
+        }
+
+        .reuse-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .reuse-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        .reuse-option input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            accent-color: var(--purple);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .reuse-option-label {
+            font-size: 13px;
+            color: var(--text2);
+            font-weight: 500;
+        }
+
+        .reuse-option-value {
+            font-size: 11px;
+            color: var(--text3);
+            margin-top: 1px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 220px;
+        }
     </style>
 </head>
 <body>
@@ -1033,9 +1109,6 @@
         { id: "gemini-3-pro-image",             label: "Gemini 3 Pro Image",  group: "Gemini",     provider: "gemini" },
         { id: "gemini-3.1-flash-image-preview", label: "Gemini 3.1 Flash",    group: "Gemini",     provider: "gemini" },
         { id: "gpt-image-1.5",                  label: "GPT Image 1.5",       group: "OpenAI",     provider: "openai" },
-        { id: "stability-ai/stable-diffusion-3-5-large",       label: "SD 3.5 Large",       group: "Stability AI", provider: "openai" },
-        { id: "stability-ai/stable-diffusion-3-5-large-turbo", label: "SD 3.5 Large Turbo", group: "Stability AI", provider: "openai" },
-        { id: "stability-ai/stable-diffusion-3-5-medium",      label: "SD 3.5 Medium",      group: "Stability AI", provider: "openai" },
         { id: "midjourney",                     label: "Midjourney",           group: "Midjourney", provider: "midjourney" },
         { id: "bria/image-3.2",                 label: "Bria 3.2",            group: "Bria",       provider: "bria" },
         { id: "flux-2-max",                     label: "Flux 2 Max",          group: "Flux",       provider: "flux" },
@@ -1045,9 +1118,6 @@
 
     const OPENAI_SIZES = {
         "gpt-image-1.5":    ["1024x1024", "1536x1024", "1024x1536"],
-        "stability-ai/stable-diffusion-3-5-large":       ["1024x1024", "1024x768", "1024x576", "768x1024", "576x1024"],
-        "stability-ai/stable-diffusion-3-5-large-turbo": ["1024x1024", "1024x768", "1024x576", "768x1024", "576x1024"],
-        "stability-ai/stable-diffusion-3-5-medium":      ["1024x1024", "1024x768", "1024x576", "768x1024", "576x1024"],
     };
 
     const BRIA_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"];
@@ -1144,6 +1214,8 @@
             size: meta.size || null,
             negativePrompt: meta.negativePrompt || null,
             seed: meta.seed || null,
+            steps: meta.steps || null,
+            guidance: meta.guidance || null,
         };
         db.transaction(STORE, "readwrite").objectStore(STORE).add(img);
         return img;
@@ -1187,19 +1259,13 @@
     };
 
     /* ── Provider: OpenAI ── */
-    const genOpenAI = async (db, { apiKey, model, prompt, openaiSize, sdSteps, sdGuidance, sdNegPrompt, signal }) => {
-        const isSD = model.startsWith("stability-ai/");
+    const genOpenAI = async (db, { apiKey, model, prompt, openaiSize, signal }) => {
         const body = {
             model,
             prompt,
             n: 1,
             size: openaiSize || "1024x1024"
         };
-        if (isSD) {
-            if (sdNegPrompt && sdNegPrompt.trim()) body.negative_prompt = sdNegPrompt.trim();
-            if (sdSteps) body.num_inference_steps = parseInt(sdSteps);
-            if (sdGuidance) body.guidance_scale = parseFloat(sdGuidance);
-        }
 
         const res = await fetch("https://api.cometapi.com/v1/images/generations", {
             method: "POST",
@@ -1328,7 +1394,7 @@
         for (const item of (data?.result || [])) {
             for (const url of (item.urls || [])) {
                 const src = await urlToDataUrl(url);
-                results.push(saveImg(db, src, prompt, { model: "bria/image-3.2", modelLabel: "Bria 3.2", provider: "bria", ratio, negativePrompt, seed: item.seed || null }));
+                results.push(saveImg(db, src, prompt, { model: "bria/image-3.2", modelLabel: "Bria 3.2", provider: "bria", ratio, negativePrompt, seed: item.seed || null, steps: briaSteps, guidance: briaGuidance }));
             }
         }
         return results;
@@ -1340,7 +1406,6 @@
             prompt,
             width: parseInt(fluxWidth) || 1024,
             height: parseInt(fluxHeight) || 1024,
-            prompt_upsampling: true
         };
 
         const res = await fetch(`https://api.cometapi.com/flux/v1/${model}`, {
@@ -1383,8 +1448,7 @@
                     model,
                     modelLabel: "Flux 2 Max",
                     provider: "flux",
-                    size: `${fluxWidth}x${fluxHeight}`,
-                    seed: r.result?.seed || null
+                    size: `${fluxWidth}x${fluxHeight}`
                 });
             }
             if (r.status?.toLowerCase() === "failed" || r.status?.toLowerCase() === "error") {
@@ -1440,14 +1504,12 @@
         const [negPromptOpen, setNegPromptOpen] = useState(false);
         const [fluxWidth, setFluxWidth] = useState(1024);
         const [fluxHeight, setFluxHeight] = useState(1024);
+        const [mjSpeed, setMjSpeed] = useState("fast");
         const [briaSteps, setBriaSteps] = useState(30);
         const [briaGuidance, setBriaGuidance] = useState(5);
         const [briaSeed, setBriaSeed] = useState("");
-        const [mjSpeed, setMjSpeed] = useState("fast");
-        const [sdSteps, setSdSteps] = useState(28);
-        const [sdGuidance, setSdGuidance] = useState(4.5);
-        const [sdNegPrompt, setSdNegPrompt] = useState("");
-        const [sdNegPromptOpen, setSdNegPromptOpen] = useState(false);
+        const [reuseModal, setReuseModal] = useState(null);
+        const [reuseChecked, setReuseChecked] = useState({});
 
         useEffect(() => {
             if (selectedIds.length === 0) setLastId(null);
@@ -1558,7 +1620,7 @@
             setLoading(true);
             setError(null);
             setStatusMsg("generating...");
-            const cfg = { apiKey, model, prompt, ratio, size, openaiSize, refImages, batchSize, negativePrompt, fluxWidth, fluxHeight, briaSteps, briaGuidance, briaSeed, mjSpeed, sdSteps, sdGuidance, sdNegPrompt, signal: controller.signal, setStatusMsg };
+            const cfg = { apiKey, model, prompt, ratio, size, openaiSize, refImages, batchSize, negativePrompt, fluxWidth, fluxHeight, briaSteps, briaGuidance, briaSeed, mjSpeed, signal: controller.signal, setStatusMsg };
             try {
                 let db;
                 try {
@@ -1682,6 +1744,48 @@
             if (text) navigator.clipboard.writeText(text);
         };
 
+        const openReuseModal = (img) => {
+            const options = {};
+            if (img.model) options.model = true;
+            if (img.prompt) options.prompt = true;
+            if (img.ratio) options.ratio = true;
+            if (img.size) options.size = true;
+            if (img.negativePrompt) options.negativePrompt = true;
+            if (img.steps) options.steps = true;
+            if (img.guidance) options.guidance = true;
+            if (img.seed) options.seed = true;
+            setReuseChecked(options);
+            setReuseModal(img);
+        };
+
+        const applyReuse = () => {
+            const img = reuseModal;
+            if (reuseChecked.model && img.model) {
+                setModel(img.model);
+                const m = MODEL_MAP[img.model];
+                if (m?.provider === "openai") setOpenaiSize(img.size || "1024x1024");
+            }
+            if (reuseChecked.prompt && img.prompt) setPrompt(img.prompt);
+            if (reuseChecked.ratio && img.ratio) setRatio(img.ratio);
+            if (reuseChecked.size && img.size) {
+                const m = MODEL_MAP[img.model];
+                if (m?.provider === "gemini") setSize(img.size);
+                if (m?.provider === "openai") setOpenaiSize(img.size);
+                const [w, h] = (img.size || "").split("x");
+                if (w && h) { setFluxWidth(parseInt(w)); setFluxHeight(parseInt(h)); }
+            }
+            if (reuseChecked.negativePrompt && img.negativePrompt) {
+                setNegativePrompt(img.negativePrompt);
+                setNegPromptOpen(true);
+            }
+            if (reuseChecked.steps && img.steps) setBriaSteps(img.steps);
+            if (reuseChecked.guidance && img.guidance) setBriaGuidance(img.guidance);
+            if (reuseChecked.seed && img.seed) setBriaSeed(String(img.seed));
+            setReuseModal(null);
+            setViewImage(null);
+            setMobileTab("settings");
+        };
+
         const isGeminiFlash = model === 'gemini-3.1-flash-image-preview';
 
         const ErrorIcon = ({ type }) => type === "api" ? (
@@ -1756,21 +1860,6 @@
                                 <select className="inp" value={openaiSize} onChange={e => setOpenaiSize(e.target.value)}>
                                     {(OPENAI_SIZES[model] || ["1024x1024"]).map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
-                            </div>
-                        )}
-
-                        {provider === "openai" && model.startsWith("stability-ai/") && (
-                            <div className="inp-row">
-                                <div className="field">
-                                    <label className="label">steps</label>
-                                    <input type="number" className="inp" min="1" max="50" value={sdSteps}
-                                        onChange={e => setSdSteps(Math.min(50, Math.max(1, parseInt(e.target.value) || 28)))} />
-                                </div>
-                                <div className="field">
-                                    <label className="label">guidance</label>
-                                    <input type="number" className="inp" min="1" max="20" step="0.5" value={sdGuidance}
-                                        onChange={e => setSdGuidance(Math.min(20, Math.max(1, parseFloat(e.target.value) || 4.5)))} />
-                                </div>
                             </div>
                         )}
 
@@ -1903,21 +1992,6 @@
                             </div>
                         )}
 
-                        {provider === "openai" && model.startsWith("stability-ai/") && (
-                            <div className="field">
-                                <button className="neg-prompt-toggle" onClick={() => setSdNegPromptOpen(p => !p)}>
-                                    negative prompt <span style={{ fontWeight: 400, color: "var(--text3)", textTransform: "none", letterSpacing: 0 }}>optional</span>
-                                    <span className={`neg-prompt-icon${sdNegPromptOpen ? " open" : ""}`}>+</span>
-                                </button>
-                                <div className={`neg-prompt-body${sdNegPromptOpen ? " open" : ""}`}>
-                                    <div className="neg-prompt-inner">
-                                        <textarea className="inp" style={{ height: 72 }} placeholder="things to exclude from the image..."
-                                            value={sdNegPrompt} onChange={e => setSdNegPrompt(e.target.value)} />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
                     </div>
                     <div className="sidebar-foot">
                         {error && (
@@ -2037,6 +2111,9 @@
                                 ) : (
                                     <div className="drawer-info">
                                         <div className="info-thumb">
+                                        <button className="btn btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={() => openReuseModal(viewImage)}>
+                                            reuse settings
+                                        </button>
                                             <img src={viewImage.src} draggable="false" />
                                         </div>
 
@@ -2081,13 +2158,48 @@
                                                     <div className="info-value">{viewImage.size}</div>
                                                 </div>
                                             )}
-                                            {(viewImage.provider === "bria" || viewImage.provider === "flux") && viewImage.seed && (
+                                            {viewImage.provider === "bria" && viewImage.seed && (
                                                 <div className="info-block">
                                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                                         <div className="info-label">seed</div>
                                                         <button className="info-copy-btn" onClick={e => copyPrompt(String(viewImage.seed), e)}>copy</button>
                                                     </div>
                                                     <div className="info-value" style={{ userSelect: "text", WebkitUserSelect: "text" }}>{viewImage.seed}</div>
+                                                </div>
+                                            )}
+                                            {viewImage.provider === "bria" && viewImage.steps && (
+                                                <div className="info-block">
+                                                    <div className="info-label">steps</div>
+                                                    <div className="info-value">{viewImage.steps}</div>
+                                                </div>
+                                            )}
+                                            {viewImage.provider === "bria" && viewImage.guidance && (
+                                                <div className="info-block">
+                                                    <div className="info-label">guidance</div>
+                                                    <div className="info-value">{viewImage.guidance}</div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="info-grid">
+                                            <div className="info-block">
+                                                <div className="info-label">model</div>
+                                                <div className="info-value">{viewImage.modelLabel || "—"}</div>
+                                            </div>
+                                            <div className="info-block">
+                                                <div className="info-label">created</div>
+                                                <div className="info-value">{viewImage.timestamp || "—"}</div>
+                                            </div>
+                                            {viewImage.ratio && (
+                                                <div className="info-block">
+                                                    <div className="info-label">ratio</div>
+                                                    <div className="info-value">{viewImage.ratio}</div>
+                                                </div>
+                                            )}
+                                            {viewImage.size && (
+                                                <div className="info-block">
+                                                    <div className="info-label">resolution</div>
+                                                    <div className="info-value">{viewImage.size}</div>
                                                 </div>
                                             )}
                                         </div>
@@ -2098,6 +2210,56 @@
                             <div className="drawer-foot">
                                 <button className="btn btn-dl" onClick={e => downloadImg(viewImage, e)}>download</button>
                                 <button className="btn btn-del-outline" onClick={() => deleteOne(viewImage.id)}>delete</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Reuse modal ── */}
+                {reuseModal && (
+                    <div className="reuse-modal-overlay" onClick={() => setReuseModal(null)}>
+                        <div className="reuse-modal" onClick={e => e.stopPropagation()}>
+                            <div>
+                                <div className="reuse-modal-title">reuse settings</div>
+                                <div className="reuse-modal-sub">pick what you want to bring back</div>
+                            </div>
+                            <div className="reuse-options">
+                                {Object.entries(reuseChecked).map(([key, checked]) => {
+                                    const labels = {
+                                        model: "model",
+                                        prompt: "prompt",
+                                        ratio: "ratio",
+                                        size: "size / resolution",
+                                        negativePrompt: "negative prompt",
+                                        steps: "steps",
+                                        guidance: "guidance",
+                                        seed: "seed"
+                                    };
+                                    const values = {
+                                        model: reuseModal.modelLabel,
+                                        prompt: reuseModal.prompt,
+                                        ratio: reuseModal.ratio,
+                                        size: reuseModal.size,
+                                        negativePrompt: reuseModal.negativePrompt,
+                                        steps: reuseModal.steps,
+                                        guidance: reuseModal.guidance,
+                                        seed: reuseModal.seed
+                                    };
+                                    return (
+                                        <label key={key} className="reuse-option">
+                                            <input type="checkbox" checked={checked}
+                                                onChange={e => setReuseChecked(prev => ({ ...prev, [key]: e.target.checked }))} />
+                                            <div>
+                                                <div className="reuse-option-label">{labels[key]}</div>
+                                                <div className="reuse-option-value">{String(values[key] || "")}</div>
+                                            </div>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                            <div className="btn-row">
+                                <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setReuseModal(null)}>cancel</button>
+                                <button className="btn btn-primary" style={{ flex: 1 }} onClick={applyReuse}>apply</button>
                             </div>
                         </div>
                     </div>
