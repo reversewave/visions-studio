@@ -1033,6 +1033,9 @@
         { id: "gemini-3-pro-image",             label: "Gemini 3 Pro Image",  group: "Gemini",     provider: "gemini" },
         { id: "gemini-3.1-flash-image-preview", label: "Gemini 3.1 Flash",    group: "Gemini",     provider: "gemini" },
         { id: "gpt-image-1.5",                  label: "GPT Image 1.5",       group: "OpenAI",     provider: "openai" },
+        { id: "stability-ai/stable-diffusion-3-5-large",       label: "SD 3.5 Large",       group: "Stability AI", provider: "openai" },
+        { id: "stability-ai/stable-diffusion-3-5-large-turbo", label: "SD 3.5 Large Turbo", group: "Stability AI", provider: "openai" },
+        { id: "stability-ai/stable-diffusion-3-5-medium",      label: "SD 3.5 Medium",      group: "Stability AI", provider: "openai" },
         { id: "midjourney",                     label: "Midjourney",           group: "Midjourney", provider: "midjourney" },
         { id: "bria/image-3.2",                 label: "Bria 3.2",            group: "Bria",       provider: "bria" },
         { id: "flux-2-max",                     label: "Flux 2 Max",          group: "Flux",       provider: "flux" },
@@ -1042,6 +1045,9 @@
 
     const OPENAI_SIZES = {
         "gpt-image-1.5":    ["1024x1024", "1536x1024", "1024x1536"],
+        "stability-ai/stable-diffusion-3-5-large":       ["1024x1024", "1024x768", "1024x576", "768x1024", "576x1024"],
+        "stability-ai/stable-diffusion-3-5-large-turbo": ["1024x1024", "1024x768", "1024x576", "768x1024", "576x1024"],
+        "stability-ai/stable-diffusion-3-5-medium":      ["1024x1024", "1024x768", "1024x576", "768x1024", "576x1024"],
     };
 
     const BRIA_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"];
@@ -1181,13 +1187,19 @@
     };
 
     /* ── Provider: OpenAI ── */
-    const genOpenAI = async (db, { apiKey, model, prompt, openaiSize, signal }) => {
+    const genOpenAI = async (db, { apiKey, model, prompt, openaiSize, sdSteps, sdGuidance, sdNegPrompt, signal }) => {
+        const isSD = model.startsWith("stability-ai/");
         const body = {
             model,
             prompt,
             n: 1,
             size: openaiSize || "1024x1024"
         };
+        if (isSD) {
+            if (sdNegPrompt && sdNegPrompt.trim()) body.negative_prompt = sdNegPrompt.trim();
+            if (sdSteps) body.num_inference_steps = parseInt(sdSteps);
+            if (sdGuidance) body.guidance_scale = parseFloat(sdGuidance);
+        }
 
         const res = await fetch("https://api.cometapi.com/v1/images/generations", {
             method: "POST",
@@ -1231,12 +1243,12 @@
         const submitRes = await fetch(baseUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-            body: JSON.stringify({ botType: "MID_JOURNEY", prompt }),
+            body: JSON.stringify({ prompt, botType: "MID_JOURNEY" }),
             signal
         });
         if (!submitRes.ok) {
             const err = await submitRes.json().catch(() => ({}));
-            throw new Error(`${submitRes.status}: ${err.error?.message || "unknown error"}`);
+            throw new Error(`${submitRes.status}: ${err.description || err.error?.message || "unknown error"}`);
         }
         const submitData = await submitRes.json();
         const taskId = submitData.result;
@@ -1432,6 +1444,10 @@
         const [briaGuidance, setBriaGuidance] = useState(5);
         const [briaSeed, setBriaSeed] = useState("");
         const [mjSpeed, setMjSpeed] = useState("fast");
+        const [sdSteps, setSdSteps] = useState(28);
+        const [sdGuidance, setSdGuidance] = useState(4.5);
+        const [sdNegPrompt, setSdNegPrompt] = useState("");
+        const [sdNegPromptOpen, setSdNegPromptOpen] = useState(false);
 
         useEffect(() => {
             if (selectedIds.length === 0) setLastId(null);
@@ -1542,7 +1558,7 @@
             setLoading(true);
             setError(null);
             setStatusMsg("generating...");
-            const cfg = { apiKey, model, prompt, ratio, size, openaiSize, refImages, batchSize, negativePrompt, fluxWidth, fluxHeight, briaSteps, briaGuidance, briaSeed, mjSpeed, signal: controller.signal, setStatusMsg };
+            const cfg = { apiKey, model, prompt, ratio, size, openaiSize, refImages, batchSize, negativePrompt, fluxWidth, fluxHeight, briaSteps, briaGuidance, briaSeed, mjSpeed, sdSteps, sdGuidance, sdNegPrompt, signal: controller.signal, setStatusMsg };
             try {
                 let db;
                 try {
@@ -1743,6 +1759,21 @@
                             </div>
                         )}
 
+                        {provider === "openai" && model.startsWith("stability-ai/") && (
+                            <div className="inp-row">
+                                <div className="field">
+                                    <label className="label">steps</label>
+                                    <input type="number" className="inp" min="1" max="50" value={sdSteps}
+                                        onChange={e => setSdSteps(Math.min(50, Math.max(1, parseInt(e.target.value) || 28)))} />
+                                </div>
+                                <div className="field">
+                                    <label className="label">guidance</label>
+                                    <input type="number" className="inp" min="1" max="20" step="0.5" value={sdGuidance}
+                                        onChange={e => setSdGuidance(Math.min(20, Math.max(1, parseFloat(e.target.value) || 4.5)))} />
+                                </div>
+                            </div>
+                        )}
+
                         {provider === "bria" && (
                             <>
                                 <div className="field">
@@ -1867,6 +1898,21 @@
                                     <div className="neg-prompt-inner">
                                         <textarea className="inp" style={{ height: 72 }} placeholder="things to exclude from the image..."
                                             value={negativePrompt} onChange={e => setNegativePrompt(e.target.value)} />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {provider === "openai" && model.startsWith("stability-ai/") && (
+                            <div className="field">
+                                <button className="neg-prompt-toggle" onClick={() => setSdNegPromptOpen(p => !p)}>
+                                    negative prompt <span style={{ fontWeight: 400, color: "var(--text3)", textTransform: "none", letterSpacing: 0 }}>optional</span>
+                                    <span className={`neg-prompt-icon${sdNegPromptOpen ? " open" : ""}`}>+</span>
+                                </button>
+                                <div className={`neg-prompt-body${sdNegPromptOpen ? " open" : ""}`}>
+                                    <div className="neg-prompt-inner">
+                                        <textarea className="inp" style={{ height: 72 }} placeholder="things to exclude from the image..."
+                                            value={sdNegPrompt} onChange={e => setSdNegPrompt(e.target.value)} />
                                     </div>
                                 </div>
                             </div>
