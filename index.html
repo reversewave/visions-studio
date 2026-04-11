@@ -1103,9 +1103,9 @@
         { id: "midjourney",                     label: "Midjourney",           group: "Midjourney", provider: "midjourney" },
         { id: "bria/image-3.2",                 label: "Bria 3.2",            group: "Bria",       provider: "bria" },
         { id: "flux-2-max",                     label: "Flux 2 Max",          group: "Flux",       provider: "flux" },
-        { id: "stability-ai/stable-diffusion-3.5-large",       label: "SD 3.5 Large",       group: "Stable Diffusion", provider: "sd" },
-        { id: "stability-ai/stable-diffusion-3.5-large-turbo",  label: "SD 3.5 Large Turbo", group: "Stable Diffusion", provider: "sd" },
-        { id: "stability-ai/stable-diffusion-3.5-medium",       label: "SD 3.5 Medium",      group: "Stable Diffusion", provider: "sd" },
+        { id: "stability-ai/stable-diffusion-3.5-large", label: "SD 3.5 Large", group: "Stable Diffusion", provider: "sd" },
+        { id: "stability-ai/stable-diffusion-3.5-large-turbo", label: "SD 3.5 Large Turbo", group: "Stable Diffusion", provider: "sd" },
+        { id: "stability-ai/stable-diffusion-3.5-medium", label: "SD 3.5 Medium", group: "Stable Diffusion", provider: "sd" },
     ];
 
     const MODEL_MAP = Object.fromEntries(MODELS.map(m => [m.id, m]));
@@ -1119,7 +1119,7 @@
     const GEMINI_PRO_RATIOS  = ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"];
     const GEMINI_FLASH_RATIOS = [...GEMINI_PRO_RATIOS, "1:4", "4:1", "1:8", "8:1"];
 
-    const SD_RATIOS = ["1:1", "2:3", "3:2", "4:5", "5:4", "9:16", "16:9", "21:9", "9:21"];
+    const SD_RATIOS = ["1:1", "16:9", "21:9", "2:3", "3:2", "4:5", "5:4", "9:16", "9:21"];
 
     const MODEL_GROUPS = MODELS.reduce((acc, m) => {
         if (!acc[m.group]) acc[m.group] = [];
@@ -1499,7 +1499,6 @@
 
     /* ── Provider: Stable Diffusion ── */
     const genSD = async (db, { apiKey, model, prompt, negativePrompt, sdSize, sdSteps, sdGuidance, sdSeed, sdInputImage, sdPromptStrength, signal }) => {
-        const ratioMap = { "1024x1024": "1:1", "1024x768": "4:3", "1024x576": "16:9", "768x1024": "3:4", "576x1024": "9:16" };
         
         const actualSeed = (sdSeed !== "" && !isNaN(parseInt(sdSeed))) 
             ? parseInt(sdSeed) 
@@ -1511,7 +1510,7 @@
             input.image = sdInputImage.dataUrl;
             input.prompt_strength = sdPromptStrength;
         } else {
-            input.aspect_ratio = ratioMap[sdSize] || "1:1";
+            input.aspect_ratio = sdSize || "1:1";
         }
 
         if (negativePrompt?.trim()) input.negative_prompt = negativePrompt.trim();
@@ -1630,7 +1629,7 @@
         const [briaSeed, setBriaSeed] = useState("");
         const [reuseModal, setReuseModal] = useState(null);
         const [reuseChecked, setReuseChecked] = useState({});
-        const [sdSize, setSdSize] = useState("1024x1024");
+        const [sdSize, setSdSize] = useState("1:1");
         const [sdSteps, setSdSteps] = useState(28);
         const [sdGuidance, setSdGuidance] = useState(4.5);
         const [sdSeed, setSdSeed] = useState("");
@@ -2059,9 +2058,17 @@
                             <>
                                 {!sdInputImage && (
                                     <div className="field">
-                                        <label className="label">resolution</label>
+                                        <label className="label">ratio</label>
                                         <select className="inp" value={sdSize} onChange={e => setSdSize(e.target.value)}>
-                                            {["1024x1024", "1024x768", "768x1024", "1024x576", "576x1024"].map(s => <option key={s} value={s}>{s}</option>)}
+                                            <option value="1:1">1:1</option>
+                                            <option value="16:9">16:9</option>
+                                            <option value="21:9">21:9</option>
+                                            <option value="2:3">2:3</option>
+                                            <option value="3:2">3:2</option>
+                                            <option value="4:5">4:5</option>
+                                            <option value="5:4">5:4</option>
+                                            <option value="9:16">9:16</option>
+                                            <option value="9:21">9:21</option>
                                         </select>
                                     </div>
                                 )}
@@ -2091,7 +2098,7 @@
                                 {sdInputImage && (
                                     <div className="flash-warn">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12" y2="17.01"/></svg>
-                                        resolution is ignored in img2img mode. output size matches the input image.
+                                        aspect ratio is ignored in img2img mode. output size matches the input image.
                                     </div>
                                 )}
                                 {sdInputImage && (
