@@ -1663,7 +1663,7 @@
                     <div className="modal-title">{title}</div>
                     <div className="modal-body">{body}</div>
                     <div className="modal-actions">
-                        <button className="btn btn-ghost" onClick={onCancel}>nah</button>
+                        <button className="btn btn-ghost" onClick={onCancel}>nah, i've changed my mind</button>
                         <button className="btn btn-danger" onClick={onConfirm}>{confirmLabel}</button>
                     </div>
                 </div>
@@ -2546,8 +2546,8 @@
                                 })}
                             </div>
                             <div className="btn-row">
-                                <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setReuseModal(null)}>cancel</button>
-                                <button className="btn btn-primary" style={{ flex: 1 }} onClick={applyReuse}>apply</button>
+                                <button className="btn btn-ghost" style={{ flex: 1, height: 40 }} onClick={() => setReuseModal(null)}>cancel</button>
+                                <button className="btn btn-primary" style={{ flex: 1, height: 40 }} onClick={applyReuse}>apply</button>
                             </div>
                         </div>
                     </div>
