@@ -80,10 +80,20 @@
         /* ── Scrollbar ── */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--surf3); border-radius: 99px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+        ::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.2); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(139,92,246,0.4); }
 
-        .app { display: flex; height: 100vh; width: 100vw; }
+        @keyframes appFadeIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+
+        .app {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            animation: appFadeIn 0.45s var(--ease2) both;
+        }
 
         /* ── Sidebar ── */
         .sidebar {
@@ -95,6 +105,18 @@
             flex-direction: column;
             height: 100vh;
             z-index: 10;
+            position: relative;
+        }
+
+        .sidebar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: -1px;
+            width: 1px;
+            height: 100%;
+            background: linear-gradient(180deg, rgba(139,92,246,0.3) 0%, rgba(232,67,147,0.15) 50%, transparent 100%);
+            pointer-events: none;
         }
 
         .sidebar-body {
@@ -119,13 +141,15 @@
             font-family: 'Sora', sans-serif;
             font-size: 13px;
             font-weight: 700;
-            letter-spacing: 0.12em;
-            background: linear-gradient(105deg, var(--purple) 20%, var(--pink));
+            letter-spacing: 0.14em;
+            background: linear-gradient(105deg, var(--purple) 0%, var(--pink) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
             padding-bottom: 18px;
             border-bottom: 1px solid var(--border);
+            text-transform: uppercase;
+            filter: drop-shadow(0 0 12px rgba(139,92,246,0.25));
         }
 
         /* ── Fields ── */
@@ -135,7 +159,7 @@
             font-size: 10.5px;
             font-weight: 600;
             color: var(--text3);
-            letter-spacing: 0.05em;
+            letter-spacing: 0.06em;
             text-transform: lowercase;
         }
 
@@ -150,16 +174,21 @@
             padding: 0 12px;
             height: 38px;
             width: 100%;
-            transition: border-color 0.15s var(--ease2), background 0.15s var(--ease2), box-shadow 0.15s var(--ease2);
+            transition: border-color 0.2s var(--ease2), background 0.2s var(--ease2), box-shadow 0.2s var(--ease2);
             appearance: none;
             -webkit-appearance: none;
         }
 
+        .inp:hover {
+            border-color: var(--border3);
+            background: var(--surf3);
+        }
+
         .inp:focus {
             outline: none;
-            border-color: rgba(139,92,246,0.45);
+            border-color: rgba(139,92,246,0.5);
             background: var(--surf3);
-            box-shadow: 0 0 0 3px var(--purple-ring);
+            box-shadow: 0 0 0 3px rgba(139,92,246,0.12);
         }
 
         .inp::placeholder { color: var(--text3); }
@@ -180,11 +209,11 @@
             align-items: flex-start;
             gap: 8px;
             padding: 10px 12px;
-            background: rgba(234,179,8,0.05);
-            border: 1px solid rgba(234,179,8,0.12);
+            background: rgba(139,92,246,0.06);
+            border: 1px solid rgba(139,92,246,0.18);
             border-radius: var(--r);
             font-size: 12px;
-            color: rgba(234,179,8,0.8);
+            color: rgba(180,150,255,0.85);
             line-height: 1.45;
         }
 
@@ -208,14 +237,20 @@
         .btn:active:not(:disabled) { transform: scale(0.97); }
 
         .btn-primary {
-            background: var(--purple);
+            background: linear-gradient(135deg, var(--purple) 0%, #a855f7 100%);
             color: #fff;
             height: 40px;
             width: 100%;
             letter-spacing: 0.01em;
+            box-shadow: 0 2px 12px rgba(139,92,246,0.25);
+            transition: all 0.2s var(--ease2);
         }
 
-        .btn-primary:hover:not(:disabled) { background: var(--purple-hover); }
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, var(--purple-hover) 0%, #9333ea 100%);
+            box-shadow: 0 4px 20px rgba(139,92,246,0.35);
+            transform: translateY(-1px);
+        }
 
         .btn-primary:disabled {
             opacity: 0.5;
@@ -332,6 +367,7 @@
             padding: 28px 30px;
             height: 100vh;
             background: var(--bg);
+            background-image: radial-gradient(ellipse 60% 40% at 70% 10%, rgba(139,92,246,0.04) 0%, transparent 70%);
         }
 
         .main-header {
@@ -347,13 +383,17 @@
             font-family: 'Sora', sans-serif;
             font-size: 17px;
             font-weight: 700;
-            color: var(--text);
+            background: linear-gradient(105deg, var(--text) 40%, var(--text2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .page-sub {
-            font-size: 12.5px;
+            font-size: 12px;
             color: var(--text3);
             margin-top: 3px;
+            letter-spacing: 0.02em;
         }
 
         /* ── Gallery ── */
@@ -365,8 +405,13 @@
         }
 
         @keyframes cardIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to   { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; transform: translateY(10px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes cardOut {
+            from { opacity: 1; transform: scale(1); }
+            to   { opacity: 0; transform: scale(0.94); }
         }
 
         .img-card {
@@ -376,23 +421,28 @@
             border: 1px solid var(--border);
             cursor: pointer;
             background: var(--surf2);
-            transition: border-color 0.2s var(--ease2), box-shadow 0.2s var(--ease2), transform 0.2s var(--ease);
-            animation: cardIn 0.25s var(--ease) both;
+            transition: border-color 0.25s var(--ease2), box-shadow 0.25s var(--ease2), transform 0.25s var(--ease);
+            animation: cardIn 0.3s var(--ease) both;
+        }
+
+        .img-card.removing {
+            animation: cardOut 0.25s var(--ease2) both;
+            pointer-events: none;
         }
 
         .img-card:hover {
-            border-color: rgba(139,92,246,0.25);
-            box-shadow: 0 6px 24px rgba(0,0,0,0.3);
-            transform: translateY(-1px);
+            border-color: rgba(139,92,246,0.3);
+            box-shadow: 0 8px 28px rgba(0,0,0,0.35), 0 0 0 1px rgba(139,92,246,0.08);
+            transform: translateY(-2px);
         }
 
         .img-card.selected {
             border-color: var(--purple);
-            box-shadow: 0 0 0 1px var(--purple);
+            box-shadow: 0 0 0 1px var(--purple), 0 0 20px rgba(139,92,246,0.15);
         }
 
         .img-card.selected:hover {
-            box-shadow: 0 0 0 1px var(--purple), 0 6px 24px rgba(0,0,0,0.3);
+            box-shadow: 0 0 0 1px var(--purple), 0 8px 28px rgba(0,0,0,0.35), 0 0 20px rgba(139,92,246,0.15);
         }
 
         .img-card img {
@@ -406,7 +456,8 @@
             position: absolute;
             inset: 0;
             opacity: 0;
-            transition: opacity 0.2s var(--ease2);
+            transition: opacity 0.25s var(--ease2);
+            background: linear-gradient(180deg, rgba(8,8,14,0.55) 0%, transparent 40%, transparent 60%, rgba(8,8,14,0.7) 100%);
         }
 
         .img-card:hover .card-overlay,
@@ -489,20 +540,21 @@
         }
 
         .empty-icon {
-            width: 44px; height: 44px;
-            border-radius: var(--r);
-            background: var(--surf2);
-            border: 1px solid var(--border2);
+            width: 48px; height: 48px;
+            border-radius: var(--r-lg);
+            background: linear-gradient(135deg, rgba(139,92,246,0.12), rgba(232,67,147,0.08));
+            border: 1px solid rgba(139,92,246,0.18);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
-            margin-bottom: 6px;
-            color: var(--text3);
+            font-size: 20px;
+            margin-bottom: 8px;
+            color: var(--purple);
+            filter: drop-shadow(0 0 8px rgba(139,92,246,0.2));
         }
 
         .empty p { font-size: 14px; font-weight: 600; color: var(--text2); }
-        .empty span { font-size: 13px; color: var(--text3); }
+        .empty span { font-size: 12.5px; color: var(--text3); }
 
         /* ── Drawer ── */
         @keyframes drawerOverlayIn {
@@ -532,11 +584,11 @@
             max-width: 100%;
             height: 100%;
             background: var(--surface);
-            border-left: 1px solid var(--border2);
+            border-left: 1px solid rgba(139,92,246,0.15);
             display: flex;
             flex-direction: column;
-            animation: drawerSlideIn 0.28s var(--ease) both;
-            box-shadow: -12px 0 40px rgba(0,0,0,0.35);
+            animation: drawerSlideIn 0.3s var(--ease) both;
+            box-shadow: -16px 0 48px rgba(0,0,0,0.4), -1px 0 0 rgba(232,67,147,0.06);
         }
 
         .drawer-head {
@@ -566,14 +618,14 @@
             border: none;
             border-bottom: 2px solid transparent;
             cursor: pointer;
-            transition: color 0.15s var(--ease2), border-color 0.15s var(--ease2);
+            transition: color 0.2s var(--ease2), border-color 0.2s var(--ease2);
         }
 
         .drawer-tab:hover { color: var(--text2); }
 
         .drawer-tab.active {
             color: var(--text);
-            border-bottom-color: var(--purple);
+            border-image: linear-gradient(90deg, var(--purple), var(--pink)) 1;
         }
 
         .drawer-close {
@@ -651,7 +703,7 @@
             line-height: 1.6;
             padding: 10px 12px;
             background: var(--bg);
-            border: 1px solid var(--border);
+            border: 1px solid rgba(139,92,246,0.12);
             border-radius: var(--r);
             max-height: 140px;
             overflow-y: auto;
@@ -747,12 +799,12 @@
 
         .modal {
             background: var(--surf2);
-            border: 1px solid var(--border2);
+            border: 1px solid rgba(139,92,246,0.15);
             border-radius: var(--r-lg);
             padding: 24px;
             max-width: 340px;
             width: 100%;
-            box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+            box-shadow: 0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(139,92,246,0.05);
             animation: modalIn 0.2s var(--ease) both;
         }
 
@@ -776,11 +828,17 @@
         /* ── Pulse ── */
         @keyframes pulse {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
+            50%       { opacity: 0.35; }
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 2px 12px rgba(139,92,246,0.25); }
+            50%       { box-shadow: 0 4px 24px rgba(139,92,246,0.5); }
         }
 
         .pulse-text { animation: pulse 2s ease-in-out infinite; }
         .faded { opacity: 0.25; pointer-events: none; }
+        .btn-primary.loading { animation: pulseGlow 1.8s ease-in-out infinite; }
 
         /* ── Lightbox ── */
         @keyframes lightboxIn {
@@ -814,13 +872,14 @@
             border-radius: var(--r);
             padding: 14px;
             cursor: pointer;
-            transition: all 0.2s var(--ease2);
+            transition: all 0.25s var(--ease2);
             text-align: center;
         }
 
         .ref-drop:hover {
-            border-color: rgba(139,92,246,0.35);
-            background: rgba(139,92,246,0.04);
+            border-color: rgba(139,92,246,0.4);
+            background: rgba(139,92,246,0.05);
+            box-shadow: 0 0 16px rgba(139,92,246,0.06);
         }
 
         .ref-drop-label {
@@ -921,6 +980,18 @@
                 border-top: 1px solid var(--border);
                 flex-shrink: 0;
                 padding-bottom: env(safe-area-inset-bottom);
+                position: relative;
+            }
+
+            .tab-bar::before {
+                content: '';
+                position: absolute;
+                top: -1px;
+                left: 0;
+                right: 0;
+                height: 1px;
+                background: linear-gradient(90deg, transparent, rgba(139,92,246,0.3), rgba(232,67,147,0.2), transparent);
+                pointer-events: none;
             }
 
             .tab-btn {
@@ -941,7 +1012,12 @@
                 letter-spacing: 0.02em;
             }
 
-            .tab-btn.active { color: var(--purple); }
+            .tab-btn.active {
+                background: linear-gradient(135deg, var(--purple), var(--pink));
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
 
             .check { width: 26px; height: 26px; }
             .del-btn { padding: 5px 10px; font-size: 11px; }
@@ -1636,6 +1712,7 @@
         const [sdInputImage, setSdInputImage] = useState(null);
         const [sdPromptStrength, setSdPromptStrength] = useState(0.85);
         const sdFileInputRef = useRef(null);
+        const [removingIds, setRemovingIds] = useState([]);
 
         useEffect(() => {
             if (selectedIds.length === 0) setLastId(null);
@@ -1805,10 +1882,13 @@
                 body: "gone forever. can't undo it.",
                 confirmLabel: "yeah, delete it",
                 onConfirm: async () => {
+                    setRemovingIds(prev => [...prev, id]);
+                    await new Promise(r => setTimeout(r, 260));
                     const db = await initDB();
                     db.transaction(STORE, "readwrite").objectStore(STORE).delete(id);
                     setHistory(prev => prev.filter(h => h.id !== id));
                     setSelectedIds(prev => prev.filter(i => i !== id));
+                    setRemovingIds(prev => prev.filter(i => i !== id));
                     if (viewImage?.id === id) setViewImage(null);
                     setConfirm(null);
                 }
@@ -2280,7 +2360,7 @@
                             {history.map(img => (
                                 <div
                                     key={img.id}
-                                    className={`img-card${selectedIds.includes(img.id) ? " selected" : ""}`}
+                                    className={`img-card${selectedIds.includes(img.id) ? " selected" : ""}${removingIds.includes(img.id) ? " removing" : ""}`}
                                     onClick={() => openDrawer(img)}
                                 >
                                     <img src={img.src} loading="lazy" draggable="false" />
