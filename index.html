@@ -147,7 +147,6 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
             padding-bottom: 18px;
-            border-bottom: 1px solid var(--border);
             text-transform: uppercase;
             filter: drop-shadow(0 0 12px rgba(139,92,246,0.25));
         }
@@ -1713,6 +1712,8 @@
         const [sdPromptStrength, setSdPromptStrength] = useState(0.85);
         const sdFileInputRef = useRef(null);
         const [removingIds, setRemovingIds] = useState([]);
+        const [soundEnabled, setSoundEnabled] = useState(true);
+        const notifAudioRef = useRef(null);
 
         useEffect(() => {
             if (selectedIds.length === 0) setLastId(null);
@@ -1861,6 +1862,10 @@
                 if (imgs.length > 0) {
                     setHistory(prev => [...imgs, ...prev].sort((a, b) => b.id - a.id));
                     setMobileTab("gallery");
+                    if (soundEnabled && notifAudioRef.current) {
+                        notifAudioRef.current.currentTime = 0;
+                        notifAudioRef.current.play().catch(() => {});
+                    }
                 }
             } catch (err) {
                 if (err.name !== "AbortError") setError(parseError(err.message, "api"));
@@ -2025,7 +2030,25 @@
                 {/* ── Sidebar ── */}
                 <aside className={`sidebar${mobileTab === "settings" ? " tab-active" : ""}`}>
                     <div className="sidebar-body">
-                        <div className="wordmark">Visions Studio</div>
+                        <audio ref={notifAudioRef} src="dragon-studio-new-notification-3-398649.mp3" preload="auto" />
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 18, borderBottom: "1px solid var(--border)" }}>
+                            <div className="wordmark">Visions Studio</div>
+                            <button
+                                onClick={() => setSoundEnabled(p => !p)}
+                                title={soundEnabled ? "mute notifications" : "unmute notifications"}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: soundEnabled ? "var(--purple)" : "var(--text3)", padding: 0, display: "flex", alignItems: "center", transition: "color 0.2s var(--ease2)" }}
+                            >
+                                {soundEnabled ? (
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                                    </svg>
+                                ) : (
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+                                    </svg>
+                                )}
+                            </button>
+                        </div>
 
                         <div className="field">
                             <label className="label">api key</label>
