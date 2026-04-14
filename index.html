@@ -1841,6 +1841,15 @@
         const buildPreviewBody = () => {
             const p = provider;
             if (p === "gemini") {
+                const config = { 
+                    responseModalities: ["IMAGE", "TEXT"],
+                    aspectRatio: ratio 
+                };
+
+                if (!model.includes("flash")) {
+                    config.imageSize = size || "1K";
+                }
+
                 return {
                     model,
                     contents: [{
@@ -1850,7 +1859,7 @@
                             { text: prompt || "(your prompt)" }
                         ]
                     }],
-                    generationConfig: { responseModalities: ["IMAGE", "TEXT"] }
+                    generationConfig: config
                 };
             }
             if (p === "openai") {
