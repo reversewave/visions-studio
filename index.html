@@ -566,6 +566,92 @@
             to   { transform: translateX(0); }
         }
 
+        @keyframes drawerSlideOut {
+            from { transform: translateX(0); }
+            to   { transform: translateX(100%); }
+        }
+
+        @keyframes drawerOverlayOut {
+            from { opacity: 1; }
+            to   { opacity: 0; }
+        }
+
+        .drawer-overlay.closing { animation: drawerOverlayOut 0.25s var(--ease2) both; }
+        .drawer.closing          { animation: drawerSlideOut 0.28s var(--ease) both; }
+
+        .json-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: 'Figtree', sans-serif;
+            font-size: 10.5px;
+            font-weight: 600;
+            color: var(--text3);
+            letter-spacing: 0.05em;
+            text-transform: lowercase;
+            padding: 0;
+            width: 100%;
+            transition: color 0.2s var(--ease2);
+        }
+
+        .json-toggle:hover { color: var(--text2); }
+
+        .json-toggle-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 1px solid var(--border3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            line-height: 1;
+            color: var(--text3);
+            transition: transform 0.3s var(--ease), border-color 0.2s var(--ease2), color 0.2s var(--ease2);
+            flex-shrink: 0;
+        }
+
+        .json-toggle-icon.open {
+            transform: rotate(45deg);
+            border-color: var(--purple);
+            color: var(--purple);
+        }
+
+        .json-body {
+            display: grid;
+            grid-template-rows: 0fr;
+            opacity: 0;
+            transition: grid-template-rows 0.3s var(--ease), opacity 0.25s var(--ease2);
+        }
+
+        .json-body.open {
+            grid-template-rows: 1fr;
+            opacity: 1;
+        }
+
+        .json-inner { overflow: hidden; }
+
+        .json-box {
+            background: var(--bg);
+            border: 1px solid rgba(139,92,246,0.12);
+            border-radius: var(--r);
+            padding: 10px 12px;
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--text2);
+            line-height: 1.6;
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 220px;
+            user-select: text;
+            -webkit-user-select: text;
+            white-space: pre;
+            margin-top: 8px;
+        }
+
         .drawer-overlay {
             position: fixed;
             inset: 0;
@@ -1711,6 +1797,8 @@
         const [sdInputImage, setSdInputImage] = useState(null);
         const [sdPromptStrength, setSdPromptStrength] = useState(0.85);
         const sdFileInputRef = useRef(null);
+        const [jsonOpen, setJsonOpen] = useState(false);
+        const [drawerClosing, setDrawerClosing] = useState(false);
         const [removingIds, setRemovingIds] = useState([]);
         const [soundEnabled, setSoundEnabled] = useState(true);
         const notifAudioRef = useRef(null);
@@ -1740,6 +1828,64 @@
         const openDrawer = (img) => {
             setViewImage(img);
             setDrawerTab("preview");
+        };
+
+        const closeDrawer = () => {
+            setDrawerClosing(true);
+            setTimeout(() => {
+                setViewImage(null);
+                setDrawerClosing(false);
+            }, 280);
+        };
+
+        const buildPreviewBody = () => {
+            const p = provider;
+            if (p === "gemini") {
+                return {
+                    model,
+                    contents: [{
+                        role: "user",
+                        parts: [
+                            ...(refImages.length > 0 ? [{ inlineData: { mimeType: "image/...", data: "[base64]" } }] : []),
+                            { text: prompt || "(your prompt)" }
+                        ]
+                    }],
+                    generationConfig: { responseModalities: ["IMAGE", "TEXT"] }
+                };
+            }
+            if (p === "openai") {
+                return { model, prompt: prompt || "(your prompt)", n: batchSize, size: openaiSize };
+            }
+            if (p === "flux") {
+                return {
+                    model,
+                    input: { prompt: prompt || "(your prompt)", width: fluxWidth, height: fluxHeight }
+                };
+            }
+            if (p === "bria") {
+                const b = { prompt: prompt || "(your prompt)", aspect_ratio: ratio, sync: true, steps_num: briaSteps, text_guidance_scale: briaGuidance, num_results: batchSize };
+                if (negativePrompt?.trim()) b.negative_prompt = negativePrompt.trim();
+                if (briaSeed !== "" && !isNaN(parseInt(briaSeed))) b.seed = parseInt(briaSeed);
+                return b;
+            }
+            if (p === "midjourney") {
+                return { model: "midjourney", prompt: prompt || "(your prompt)", speed: mjSpeed };
+            }
+            if (p === "sd") {
+                const input = { prompt: prompt || "(your prompt)" };
+                if (sdInputImage) {
+                    input.image = "[base64 image]";
+                    input.prompt_strength = sdPromptStrength;
+                } else {
+                    input.aspect_ratio = sdSize || "1:1";
+                }
+                if (negativePrompt?.trim()) input.negative_prompt = negativePrompt.trim();
+                if (sdSteps != null) input.num_inference_steps = parseInt(sdSteps);
+                if (sdGuidance != null) input.guidance_scale = parseFloat(sdGuidance);
+                if (sdSeed !== "" && !isNaN(parseInt(sdSeed))) input.seed = parseInt(sdSeed);
+                return { model, input };
+            }
+            return {};
         };
 
         const exportVault = async () => {
@@ -2311,6 +2457,19 @@
                             </div>
                         )}
 
+                        <div className="field">
+                            <button className="json-toggle" onClick={() => setJsonOpen(p => !p)}>
+                                request preview
+                                <span className={`json-toggle-icon${jsonOpen ? " open" : ""}`}>+</span>
+                            </button>
+                            <div className={`json-body${jsonOpen ? " open" : ""}`}>
+                                <div className="json-inner">
+                                    <div className="json-box">{JSON.stringify(buildPreviewBody(), null, 2)}</div>
+                                    <button className="info-copy-btn" style={{ marginTop: 6 }} onClick={() => navigator.clipboard.writeText(JSON.stringify(buildPreviewBody(), null, 2))}>copy</button>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                     <div className="sidebar-foot">
                         {error && (
@@ -2408,14 +2567,14 @@
 
                 {/* ── Drawer ── */}
                 {viewImage && (
-                    <div className="drawer-overlay" onClick={() => setViewImage(null)}>
-                        <div className="drawer" onClick={e => e.stopPropagation()}>
+                    <div className={`drawer-overlay${drawerClosing ? " closing" : ""}`} onClick={closeDrawer}>
+                        <div className={`drawer${drawerClosing ? " closing" : ""}`} onClick={e => e.stopPropagation()}>
                             <div className="drawer-head">
                                 <div className="drawer-tabs">
                                     <button className={`drawer-tab${drawerTab === "preview" ? " active" : ""}`} onClick={() => setDrawerTab("preview")}>preview</button>
                                     <button className={`drawer-tab${drawerTab === "info" ? " active" : ""}`} onClick={() => setDrawerTab("info")}>info</button>
                                 </div>
-                                <button className="drawer-close" onClick={() => setViewImage(null)}>
+                                <button className="drawer-close" onClick={closeDrawer}>
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                                     </svg>
@@ -2445,6 +2604,22 @@
                                             </div>
                                             <div className="info-prompt-box">{viewImage.prompt || "no prompt saved"}</div>
                                         </div>
+
+                                    <div className="field">
+                                        <button className="json-toggle" onClick={() => setJsonOpen(p => !p)}>
+                                            request body
+                                            <span className={`json-toggle-icon${jsonOpen ? " open" : ""}`}>+</span>
+                                        </button>
+                                        <div className={`json-body${jsonOpen ? " open" : ""}`}>
+                                            <div className="json-inner">
+                                                <div className="json-box">{JSON.stringify(viewImage.requestBody || {
+                                                    model: viewImage.model,
+                                                    prompt: viewImage.prompt,
+                                                    provider: viewImage.provider
+                                                }, null, 2)}</div>
+                                            </div>
+                                        </div>
+                                    </div>
 
                                         {(viewImage.provider === "bria" || viewImage.provider === "sd") && viewImage.negativePrompt && (
                                             <div className="info-block">
