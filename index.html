@@ -1373,6 +1373,7 @@
             seed: meta.seed || null,
             steps: meta.steps || null,
             guidance: meta.guidance || null,
+            requestBody: meta.requestBody || null
         };
         db.transaction(STORE, "readwrite").objectStore(STORE).add(img);
         return img;
