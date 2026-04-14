@@ -579,79 +579,6 @@
         .drawer-overlay.closing { animation: drawerOverlayOut 0.25s var(--ease2) both; }
         .drawer.closing          { animation: drawerSlideOut 0.28s var(--ease) both; }
 
-        .json-toggle {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-family: 'Figtree', sans-serif;
-            font-size: 10.5px;
-            font-weight: 600;
-            color: var(--text3);
-            letter-spacing: 0.05em;
-            text-transform: lowercase;
-            padding: 0;
-            width: 100%;
-            transition: color 0.2s var(--ease2);
-        }
-
-        .json-toggle:hover { color: var(--text2); }
-
-        .json-toggle-icon {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            border: 1px solid var(--border3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 13px;
-            line-height: 1;
-            color: var(--text3);
-            transition: transform 0.3s var(--ease), border-color 0.2s var(--ease2), color 0.2s var(--ease2);
-            flex-shrink: 0;
-        }
-
-        .json-toggle-icon.open {
-            transform: rotate(45deg);
-            border-color: var(--purple);
-            color: var(--purple);
-        }
-
-        .json-body {
-            display: grid;
-            grid-template-rows: 0fr;
-            opacity: 0;
-            transition: grid-template-rows 0.3s var(--ease), opacity 0.25s var(--ease2);
-        }
-
-        .json-body.open {
-            grid-template-rows: 1fr;
-            opacity: 1;
-        }
-
-        .json-inner { overflow: hidden; }
-
-        .json-box {
-            background: var(--bg);
-            border: 1px solid rgba(139,92,246,0.12);
-            border-radius: var(--r);
-            padding: 10px 12px;
-            font-family: monospace;
-            font-size: 11px;
-            color: var(--text2);
-            line-height: 1.6;
-            overflow-x: auto;
-            overflow-y: auto;
-            max-height: 220px;
-            user-select: text;
-            -webkit-user-select: text;
-            white-space: pre;
-            margin-top: 8px;
-        }
-
         .drawer-overlay {
             position: fixed;
             inset: 0;
@@ -1248,6 +1175,34 @@
             white-space: nowrap;
             max-width: 200px;
         }
+
+        @keyframes pop-in {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        @keyframes pop-out {
+            from { opacity: 1; transform: scale(1) translateY(0); }
+            to   { opacity: 0; transform: scale(0.95) translateY(10px); }
+        }
+
+        .popup-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(4,4,8,0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            z-index: 2000;
+            animation: pop-in 0.3s var(--ease) both;
+        }
+
+        .popup-overlay.closing {
+            animation: pop-out 0.25s var(--ease) both;
+        }
     </style>
 </head>
 <body>
@@ -1372,8 +1327,7 @@
             negativePrompt: meta.negativePrompt || null,
             seed: meta.seed || null,
             steps: meta.steps || null,
-            guidance: meta.guidance || null,
-            requestBody: meta.requestBody || null
+            guidance: meta.guidance || null
         };
         db.transaction(STORE, "readwrite").objectStore(STORE).add(img);
         return img;
@@ -1802,6 +1756,15 @@
         const [removingIds, setRemovingIds] = useState([]);
         const [soundEnabled, setSoundEnabled] = useState(true);
         const notifAudioRef = useRef(null);
+        const [popupClosing, setPopupClosing] = useState(false);
+
+        const animatedClose = (setter) => {
+            setPopupClosing(true);
+            setTimeout(() => {
+                setter(false;
+                setPopupClosing(false);;
+            }, 250);
+        };
 
         useEffect(() => {
             if (selectedIds.length === 0) setLastId(null);
@@ -2614,22 +2577,6 @@
                                             <div className="info-prompt-box">{viewImage.prompt || "no prompt saved"}</div>
                                         </div>
 
-                                    <div className="field">
-                                        <button className="json-toggle" onClick={() => setJsonOpen(p => !p)}>
-                                            request body
-                                            <span className={`json-toggle-icon${jsonOpen ? " open" : ""}`}>+</span>
-                                        </button>
-                                        <div className={`json-body${jsonOpen ? " open" : ""}`}>
-                                            <div className="json-inner">
-                                                <div className="json-box">{JSON.stringify(viewImage.requestBody || {
-                                                    model: viewImage.model,
-                                                    prompt: viewImage.prompt,
-                                                    provider: viewImage.provider
-                                                }, null, 2)}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
                                         {(viewImage.provider === "bria" || viewImage.provider === "sd") && viewImage.negativePrompt && (
                                             <div className="info-block">
                                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2705,6 +2652,28 @@
                             <div className="drawer-foot">
                                 <button className="btn btn-dl" onClick={e => downloadImg(viewImage, e)}>download</button>
                                 <button className="btn btn-del-outline" onClick={() => deleteOne(viewImage.id)}>delete</button>
+                            </div>
+                        </div>
+                    </div>
+
+
+                {showDeleteConfirm && (
+                    <div className={`overlay${popupClosing ? " closing" : ""}`} onClick={() => animatedClose(setShowDeleteConfirm)}>
+                        <div className="modal" onClick={e => e.stopPropagation()}>
+                            <div className="modal-title">Clear Gallery</div>
+                            <div className="modal-body">
+                                Are you sure you want to delete all images? This action cannot be undone.
+                            </div>
+                            <div className="modal-actions">
+                                <button className="btn btn-ghost" onClick={() => animatedClose(setShowDeleteConfirm)}>
+                                    cancel
+                                </button>
+                                <button className="btn btn-danger" onClick={() => {
+                                    clearGallery();
+                                    animatedClose(setShowDeleteConfirm);
+                                }}>
+                                    delete all
+                                </button>
                             </div>
                         </div>
                     </div>
