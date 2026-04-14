@@ -1534,7 +1534,7 @@
 
     /* ── Provider: Bria ── */
     const genBria = async (db, { apiKey, prompt, negativePrompt, ratio, batchSize, briaSteps, briaGuidance, briaSeed, signal }) => {
-        const body = { prompt, num_results: batchSize, aspect_ratio: ratio, sync: true, steps_num: briaSteps, text_guidance_scale: briaGuidance };
+        const body = { prompt, num_results: batchSize, aspect_ratio: ratio, sync: true, steps_num: briaSteps, text_guidance_scale: briaGuidance, enhance_image: true };
         if (negativePrompt && negativePrompt.trim()) body.negative_prompt = negativePrompt.trim();
         if (briaSeed !== "" && !isNaN(parseInt(briaSeed))) body.seed = parseInt(briaSeed);
         const res = await fetch("https://api.cometapi.com/bria/text-to-image", {
@@ -1563,7 +1563,6 @@
             prompt,
             width: parseInt(fluxWidth) || 1024,
             height: parseInt(fluxHeight) || 1024,
-            prompt_upsampling: true,
         };
 
         const res = await fetch(`https://api.cometapi.com/flux/v1/${model}`, {
@@ -1872,7 +1871,7 @@
                 };
             }
             if (p === "bria") {
-                const b = { prompt: prompt || "(your prompt)", aspect_ratio: ratio, sync: true, steps_num: briaSteps, text_guidance_scale: briaGuidance, num_results: batchSize };
+                const b = { prompt: prompt || "(your prompt)", aspect_ratio: ratio, sync: true, steps_num: briaSteps, text_guidance_scale: briaGuidance, num_results: batchSize, enhance_image: true };
                 if (negativePrompt?.trim()) b.negative_prompt = negativePrompt.trim();
                 if (briaSeed !== "" && !isNaN(parseInt(briaSeed))) b.seed = parseInt(briaSeed);
                 return b;
