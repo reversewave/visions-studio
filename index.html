@@ -1923,6 +1923,25 @@
                 useEffect(() => {
                     localStorage.setItem("vs_key", apiKey);
                 }, [apiKey]);
+                useEffect(() => {
+                    const unlockAudio = () => {
+                        const audio = notifAudioRef.current;
+                        if (audio) {
+                            audio.muted = true;
+                            audio.play().then(() => {
+                                audio.pause();
+                                audio.currentTime = 0;
+                                audio.muted = false;
+                            }).catch(() => {});
+                        }
+                    };
+
+                    document.addEventListener("click", unlockAudio, { once: true });
+
+                    return () => {
+                        document.removeEventListener("click", unlockAudio);
+                    };
+                }, []);
                 const openDrawer = (img) => {
                     setViewImage(img);
                     setDrawerTab("preview");
