@@ -921,6 +921,12 @@
                 justify-content: flex-end;
                 gap: 8px;
             }
+            .modal-actions .btn-primary {
+                height: 34px;
+                width: auto;
+                padding: 0 20px;
+                flex: 1;
+            }
             .pulse-text {
                 animation: pulse 2s ease-in-out infinite;
             }
@@ -1166,10 +1172,6 @@
             }
             .reuse-modal-overlay.closing .reuse-modal {
                 animation: slideDown 0.2s var(--ease2) both;
-            }
-            .reuse-modal .modal-actions .btn-primary {
-                flex: 1;
-                height: 34px;
             }
             .tab-bar {
                 display: none;
@@ -2185,6 +2187,7 @@
                             const tx = db.transaction(STORE, "readwrite");
                             selectedIds.forEach((id) => tx.objectStore(STORE).delete(id));
                             setHistory((prev) => prev.filter((h) => !selectedIds.includes(h.id)));
+                            if (viewImage && selectedIds.includes(viewImage.id)) setViewImage(null);
                             setSelectedIds([]);
                             setConfirm(null);
                         },
@@ -2269,7 +2272,6 @@
                         if (imgProvider === "sd") setSdSeed(String(img.seed));
                         else setBriaSeed(String(img.seed));
                     }
-                    closeReuse();
                     setViewImage(null);
                     setMobileTab("settings");
                 };
