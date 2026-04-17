@@ -1046,13 +1046,13 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            animation: lbIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+            animation: lbIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
             user-select: none;
             -webkit-user-select: none;
         }
 
         .lightbox-overlay.closing {
-            animation: lbOut 0.26s cubic-bezier(0.4, 0, 1, 1) both;
+            animation: lbOut 0.15s cubic-bezier(0.4, 0, 1, 1) both;
             pointer-events: none;
         }
 
@@ -2200,8 +2200,9 @@
                     setLightboxSrc(null);
                     setLightboxClosing(false);
                     lbDragRef.current.active = false;
+                    lbDragRef.current.justDragged = false;
                     setLbDragging(false);
-                }, 280);
+                }, 160);
             };
 
             const lbMouseDown = (e) => {
@@ -2225,8 +2226,8 @@
                 const hadMoved = lbDragRef.current.moved;
                 lbDragRef.current.active = false;
                 lbDragRef.current.moved = false;
+                lbDragRef.current.justDragged = hadMoved;
                 setLbDragging(false);
-                if (wasActive && !hadMoved && e.target === e.currentTarget) closeLightbox();
             };
 
             const buildPreviewBody = () => {
@@ -3122,7 +3123,14 @@
                                     <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                                 </svg>
                             </button>
-                            <div className={`lightbox-img-wrap${lbDragging ? " dragging" : ""}`}>
+                            <div
+                                className={`lightbox-img-wrap${lbDragging ? " dragging" : ""}`}
+                                onClick={(e) => {
+                                    if (e.target !== e.currentTarget) return;
+                                    if (lbDragRef.current.justDragged) { lbDragRef.current.justDragged = false; return; }
+                                    closeLightbox();
+                                }}
+                            >
                                 <img
                                     src={lightboxSrc}
                                     alt="Expanded view"
