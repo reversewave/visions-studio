@@ -1177,9 +1177,11 @@
         }
 
         @media (max-width: 480px) {
-            .lb-btn { width: 46px; height: 46px; }
-            .lightbox-toolbar { gap: 4px; padding: 8px 10px 24px; }
+            .lb-btn { width: 34px; height: 34px; }
+            .lightbox-toolbar { gap: 3px; padding: 8px 6px 20px; }
             .lightbox-img-wrap { padding-top: 52px; }
+            .lb-zoom-label { min-width: 26px; font-size: 10px; }
+            .lb-divider { margin: 0 1px; }
         }
 
         .ref-drop {
@@ -1450,7 +1452,7 @@
 
             .sidebar {
                 width: 100%;
-                height: calc(100dvh - 56px);
+                height: calc(100dvh - 56px - env(safe-area-inset-bottom, 0px));
                 border-right: none;
                 display: none;
             }
@@ -1460,7 +1462,7 @@
             }
 
             .main {
-                height: calc(100dvh - 56px);
+                height: calc(100dvh - 56px - env(safe-area-inset-bottom, 0px));
                 padding: 18px 14px;
                 display: none;
             }
@@ -2004,6 +2006,7 @@
                     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
                     await new Promise((r) => setTimeout(r, 3000));
                     const pollRes = await fetch(pollUrl, { headers: { Authorization: `Bearer ${apiKey}` }, signal });
+                    if (!pollRes.ok) throw new Error(`SD poll failed: HTTP ${pollRes.status}`);
                     const pollData = await pollRes.json();
                     
                     if (pollData.status === "succeeded") {
@@ -2112,8 +2115,9 @@
             const sdFileInputRef = useRef(null);
             const [jsonOpen, setJsonOpen] = useState(false);
             const [drawerClosing, setDrawerClosing] = useState(false);
+            const drawerCloseTimeout = useRef(null);
             const [removingIds, setRemovingIds] = useState([]);
-            const [soundEnabled, setSoundEnabled] = useState(true);
+            const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("vs_sound") !== "false");
             const notifAudioRef = useRef(null);
             const [reuseClosing, setReuseClosing] = useState(false);
 
@@ -2134,7 +2138,7 @@
 
             useEffect(() => {
                 if (provider === "openai") setOpenaiSize((OPENAI_SIZES[model] || ["1024x1024"])[0]);
-            }, [model]);
+            }, [model, provider]);
 
             useEffect(() => {
                 const load = async () => {
@@ -2148,6 +2152,10 @@
             useEffect(() => {
                 localStorage.setItem("vs_key", apiKey);
             }, [apiKey]);
+
+            useEffect(() => {
+                localStorage.setItem("vs_sound", soundEnabled);
+            }, [soundEnabled]);
 
             useEffect(() => {
                 const unlockAudio = () => {
@@ -2168,15 +2176,21 @@
             }, []);
 
             const openDrawer = (img) => {
+                if (drawerCloseTimeout.current) {
+                    clearTimeout(drawerCloseTimeout.current);
+                    drawerCloseTimeout.current = null;
+                }
+                setDrawerClosing(false);
                 setViewImage(img);
                 setDrawerTab("preview");
             };
 
             const closeDrawer = () => {
                 setDrawerClosing(true);
-                setTimeout(() => {
+                drawerCloseTimeout.current = setTimeout(() => {
                     setViewImage(null);
                     setDrawerClosing(false);
+                    drawerCloseTimeout.current = null;
                 }, 280);
             };
 
@@ -2212,6 +2226,12 @@
                 setLbDragging(true);
             };
 
+            const lbTouchStart = (e) => {
+                const t = e.touches[0];
+                lbDragRef.current = { active: true, startX: t.clientX, startY: t.clientY, originX: panX, originY: panY, moved: false };
+                setLbDragging(true);
+            };
+
             const lbMouseMove = (e) => {
                 if (!lbDragRef.current.active) return;
                 const dx = e.clientX - lbDragRef.current.startX;
@@ -2222,7 +2242,6 @@
             };
 
             const lbMouseUp = (e) => {
-                const wasActive = lbDragRef.current.active;
                 const hadMoved = lbDragRef.current.moved;
                 lbDragRef.current.active = false;
                 lbDragRef.current.moved = false;
@@ -2314,8 +2333,13 @@
                             alert("backup restored! refreshing...");
                             window.location.reload();
                         };
+                        tx.onerror = () => {
+                            alert("something went wrong saving the backup to storage. your data may be unchanged.");
+                            event.target.value = "";
+                        };
                     } catch {
                         alert("that file isn't a valid visions backup");
+                        event.target.value = "";
                     }
                 };
                 reader.readAsText(file);
@@ -2441,7 +2465,7 @@
                         setHistory((prev) => prev.filter((h) => h.id !== id));
                         setSelectedIds((prev) => prev.filter((i) => i !== id));
                         setRemovingIds((prev) => prev.filter((i) => i !== id));
-                        if (viewImage?.id === id) setViewImage(null);
+                        if (viewImage?.id === id) closeDrawer();
                         setConfirm(null);
                     },
                 });
@@ -2472,7 +2496,7 @@
                         const tx = db.transaction(STORE, "readwrite");
                         selectedIds.forEach((id) => tx.objectStore(STORE).delete(id));
                         setHistory((prev) => prev.filter((h) => !selectedIds.includes(h.id)));
-                        if (viewImage && selectedIds.includes(viewImage.id)) setViewImage(null);
+                        if (viewImage && selectedIds.includes(viewImage.id)) closeDrawer();
                         setSelectedIds([]);
                         setConfirm(null);
                     },
@@ -2513,7 +2537,17 @@
                 if (text) navigator.clipboard.writeText(text);
             };
 
-            const openReuseModal = (img) => {
+            const REUSE_LABELS = {
+                model: "model",
+                prompt: "prompt",
+                ratio: "ratio",
+                size: "size",
+                negativePrompt: "negative prompt",
+                steps: "steps",
+                guidance: "guidance",
+                seed: "seed",
+                promptStrength: "prompt strength",
+            };
                 const options = {};
                 if (img.model) options.model = true;
                 if (img.prompt) options.prompt = true;
@@ -2523,6 +2557,7 @@
                 if (img.steps) options.steps = true;
                 if (img.guidance) options.guidance = true;
                 if (img.seed) options.seed = true;
+                if (img.promptStrength != null) options.promptStrength = true;
                 setReuseChecked(options);
                 setReuseModal(img);
             };
@@ -2563,6 +2598,9 @@
                 if (reuseChecked.seed && img.seed) {
                     if (imgProvider === "sd") setSdSeed(String(img.seed));
                     else setBriaSeed(String(img.seed));
+                }
+                if (reuseChecked.promptStrength && img.promptStrength != null) {
+                    setSdPromptStrength(img.promptStrength);
                 }
                 setViewImage(null);
                 setMobileTab("settings");
@@ -2727,7 +2765,7 @@
                                             </div>
                                             <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1 }}>
                                                 <span style={{ fontSize: "10px", color: "var(--text3)", textTransform: "uppercase" }}>height</span>
-                                                <input type="number" className="inp" step="32" min="64" max="2048" value={fluxHeight} onChange={(e) => setFluxHeight(Math.min(2048, parseInt(e.target.value) || 1024))} onBlur={() => setFluxHeight(clampFluxDim(fluxHeight))} />
+                                                <input type="number" className="inp" step="16" min="64" max="2048" value={fluxHeight} onChange={(e) => setFluxHeight(Math.min(2048, parseInt(e.target.value) || 1024))} onBlur={() => setFluxHeight(clampFluxDim(fluxHeight))} />
                                             </div>
                                         </div>
                                     </div>
@@ -3097,7 +3135,7 @@
                                         <label key={key} className="reuse-option">
                                             <input type="checkbox" checked={reuseChecked[key]} onChange={() => setReuseChecked((prev) => ({ ...prev, [key]: !prev[key] }))} />
                                             <div>
-                                                <div className="reuse-option-label">{key}</div>
+                                                <div className="reuse-option-label">{REUSE_LABELS[key] ?? key}</div>
                                                 <div className="reuse-option-value">{String(reuseModal[key] ?? "")}</div>
                                             </div>
                                         </label>
