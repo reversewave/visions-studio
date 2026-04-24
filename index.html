@@ -1595,7 +1595,7 @@
             { id: "midjourney", label: "Midjourney", group: "Midjourney", provider: "midjourney" },
             { id: "bria/image-3.2", label: "Bria 3.2", group: "Bria", provider: "bria" },
             { id: "flux-2-max", label: "Flux 2 Max", group: "Flux", provider: "flux" },
-            { id: "doubao-seedream-5-0-260128", label: "Seedream 5", group: "Seedream", provider: "seedream" },
+            { id: "doubao-seedream-5-0-260128", label: "Seedream 5 Lite", group: "Seedream", provider: "seedream" },
             { id: "qwen-image-2", label: "Qwen Image 2", group: "Qwen", provider: "qwen" },
             { id: "stability-ai/stable-diffusion-3.5-large", label: "SD 3.5 Large", group: "Stable Diffusion", provider: "sd" },
             { id: "stability-ai/stable-diffusion-3.5-large-turbo", label: "SD 3.5 Large Turbo", group: "Stable Diffusion", provider: "sd" },
@@ -1820,7 +1820,7 @@
             const item = data?.data?.[0];
             if (!item) return null;
             const src = item.url ? await urlToDataUrl(item.url) : item.b64_json ? `data:image/png;base64,${item.b64_json}` : null;
-            return src ? saveImg(db, src, prompt, { model, modelLabel: "Seedream 5", provider: "seedream", size: seedreamSize }) : null;
+            return src ? saveImg(db, src, prompt, { model, modelLabel: "Seedream 5 Lite", provider: "seedream", size: seedreamSize }) : null;
         };
 
         const genQwen = async (db, { apiKey, model, prompt, qwenSize, qwenSeed, qwenWatermark, qwenStrength, qwenRefImages, signal }) => {
@@ -1831,7 +1831,7 @@
                 response_format: "url",
                 watermark: qwenWatermark || false,
             };
-            if (qwenSeed !== undefined && qwenSeed !== -1 && qwenSeed !== "") body.seed = parseInt(qwenSeed);
+            if (qwenSeed !== undefined && qwenSeed !== "" && parseInt(qwenSeed) !== -1 && !isNaN(parseInt(qwenSeed))) body.seed = parseInt(qwenSeed);
             if (qwenRefImages?.length > 0) {
                 body.image = qwenRefImages[0].dataUrl;
                 body.strength = qwenStrength ?? 0.85;
@@ -2386,8 +2386,8 @@
                 if (p === "seedream") return { model, prompt: prompt || "(your prompt)", size: seedreamSize, response_format: "url", ...(seedreamRefImage ? { image: "[base64 image]" } : {}) };
                 if (p === "qwen") {
                     const q = { model, prompt: prompt || "(your prompt)", size: qwenSize, response_format: "url", watermark: qwenWatermark };
-                    if (qwenSeed !== -1 && qwenSeed !== "") q.seed = parseInt(qwenSeed);
-                    if (qwenRefImages?.length > 0) q.image = "[base64 image]";
+                    if (qwenSeed !== "" && parseInt(qwenSeed) !== -1 && !isNaN(parseInt(qwenSeed))) q.seed = parseInt(qwenSeed);
+                    if (qwenRefImages?.length > 0) { q.image = "[base64 image]"; q.strength = qwenStrength; }
                     return q;
                 }
                 if (p === "sd") {
