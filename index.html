@@ -1591,17 +1591,23 @@
         const MODELS = [
             { id: "gemini-3-pro-image", label: "Gemini 3 Pro Image", group: "Gemini", provider: "gemini" },
             { id: "gemini-3.1-flash-image-preview", label: "Gemini 3.1 Flash", group: "Gemini", provider: "gemini" },
-            { id: "gpt-image-1.5", label: "GPT Image 1.5", group: "OpenAI", provider: "openai" },
+            { id: "gpt-image-2", label: "GPT Image 2", group: "OpenAI", provider: "openai" },
             { id: "midjourney", label: "Midjourney", group: "Midjourney", provider: "midjourney" },
             { id: "bria/image-3.2", label: "Bria 3.2", group: "Bria", provider: "bria" },
             { id: "flux-2-max", label: "Flux 2 Max", group: "Flux", provider: "flux" },
+            { id: "doubao-seedream-5-0-260128", label: "Seedream 5", group: "Seedream", provider: "seedream" },
+            { id: "qwen-image-2", label: "Qwen Image 2", group: "Qwen", provider: "qwen" },
             { id: "stability-ai/stable-diffusion-3.5-large", label: "SD 3.5 Large", group: "Stable Diffusion", provider: "sd" },
             { id: "stability-ai/stable-diffusion-3.5-large-turbo", label: "SD 3.5 Large Turbo", group: "Stable Diffusion", provider: "sd" },
             { id: "stability-ai/stable-diffusion-3.5-medium", label: "SD 3.5 Medium", group: "Stable Diffusion", provider: "sd" },
         ];
         
         const MODEL_MAP = Object.fromEntries(MODELS.map((m) => [m.id, m]));
-        const OPENAI_SIZES = { "gpt-image-1.5": ["1024x1024", "1536x1024", "1024x1536"] };
+        const OPENAI_SIZES = {
+            "gpt-image-2": ["1024x1024", "1024x768", "1024x1536", "1536x1024", "1920x1080", "2560x1440", "3840x2160", "custom"],
+        };
+        const SEEDREAM_SIZES = ["1K", "2K", "4K"];
+        const QWEN_SIZES = ["1024x1024", "1280x720", "720x1280", "1536x1024", "1024x1536", "auto"];
         const BRIA_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"];
         const GEMINI_PRO_RATIOS = ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"];
         const GEMINI_FLASH_RATIOS = [...GEMINI_PRO_RATIOS, "1:4", "4:1", "1:8", "8:1"];
@@ -1744,14 +1750,35 @@
             });
         };
 
-        const genOpenAI = async (db, { apiKey, model, prompt, openaiSize, signal }) => {
-            const body = { model, prompt, n: 1, size: openaiSize || "1024x1024" };
-            const res = await fetch("https://api.cometapi.com/v1/images/generations", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-                body: JSON.stringify(body),
-                signal,
-            });
+        const genOpenAI = async (db, { apiKey, model, prompt, openaiSize, openaiQuality, gpt2RefImages, signal }) => {
+            const resolvedSize = openaiSize === "custom" ? null : (openaiSize || "1024x1024");
+            let res;
+            if (gpt2RefImages && gpt2RefImages.length > 0) {
+                const formData = new FormData();
+                formData.append("model", model);
+                formData.append("prompt", prompt);
+                if (resolvedSize) formData.append("size", resolvedSize);
+                formData.append("quality", openaiQuality || "medium");
+                for (const img of gpt2RefImages) {
+                    const blob = await fetch(img.dataUrl).then((r) => r.blob());
+                    formData.append("image[]", blob, "image.png");
+                }
+                res = await fetch("https://api.cometapi.com/v1/images/edits", {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${apiKey}` },
+                    body: formData,
+                    signal,
+                });
+            } else {
+                const body = { model, prompt, n: 1, quality: openaiQuality || "medium" };
+                if (resolvedSize) body.size = resolvedSize;
+                res = await fetch("https://api.cometapi.com/v1/images/generations", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+                    body: JSON.stringify(body),
+                    signal,
+                });
+            }
             
             if (!res.ok) {
                 const errorData = await res.json().catch(() => ({}));
@@ -1769,6 +1796,61 @@
                 provider: "openai",
                 size: openaiSize,
             }) : null;
+        };
+
+        const genSeedream = async (db, { apiKey, model, prompt, seedreamSize, seedreamRefImage, signal }) => {
+            const body = {
+                model,
+                prompt,
+                size: seedreamSize || "2K",
+                response_format: "url",
+            };
+            if (seedreamRefImage) body.image = seedreamRefImage.dataUrl;
+            const res = await fetch("https://api.cometapi.com/v1/images/generations", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+                body: JSON.stringify(body),
+                signal,
+            });
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(`${res.status}: ${errorData.error?.message || "unknown error"}`);
+            }
+            const data = await res.json();
+            const item = data?.data?.[0];
+            if (!item) return null;
+            const src = item.url ? await urlToDataUrl(item.url) : item.b64_json ? `data:image/png;base64,${item.b64_json}` : null;
+            return src ? saveImg(db, src, prompt, { model, modelLabel: "Seedream 5", provider: "seedream", size: seedreamSize }) : null;
+        };
+
+        const genQwen = async (db, { apiKey, model, prompt, qwenSize, qwenSeed, qwenWatermark, qwenStrength, qwenRefImages, signal }) => {
+            const body = {
+                model,
+                prompt,
+                size: qwenSize || "1024x1024",
+                response_format: "url",
+                watermark: qwenWatermark || false,
+            };
+            if (qwenSeed !== undefined && qwenSeed !== -1 && qwenSeed !== "") body.seed = parseInt(qwenSeed);
+            if (qwenRefImages?.length > 0) {
+                body.image = qwenRefImages[0].dataUrl;
+                body.strength = qwenStrength ?? 0.85;
+            }
+            const res = await fetch("https://api.cometapi.com/v1/images/generations", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+                body: JSON.stringify(body),
+                signal,
+            });
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(`${res.status}: ${errorData.error?.message || "unknown error"}`);
+            }
+            const data = await res.json();
+            const item = data?.data?.[0];
+            if (!item) return null;
+            const src = item.url ? await urlToDataUrl(item.url) : item.b64_json ? `data:image/png;base64,${item.b64_json}` : null;
+            return src ? saveImg(db, src, prompt, { model, modelLabel: "Qwen Image 2", provider: "qwen", size: qwenSize }) : null;
         };
 
         const genMidjourney = async (db, { apiKey, prompt, batchSize, mjSpeed, signal, setStatusMsg }) => {
@@ -1871,7 +1953,7 @@
             };
             
             if (negativePrompt && negativePrompt.trim()) body.negative_prompt = negativePrompt.trim();
-            if (briaSeed !== "" && !isNaN(parseInt(briaSeed))) body.seed = parseInt(briaSeed);
+            if (briaSeed !== "" && !isNaN(parseInt(briaSeed)) && parseInt(briaSeed) !== -1) body.seed = parseInt(briaSeed);
             
             const res = await fetch("https://api.cometapi.com/bria/text-to-image", {
                 method: "POST",
@@ -1968,7 +2050,7 @@
         };
 
         const genSD = async (db, { apiKey, model, prompt, negativePrompt, sdSize, sdSteps, sdGuidance, sdSeed, sdInputImage, sdPromptStrength, signal }) => {
-            const actualSeed = sdSeed !== "" && !isNaN(parseInt(sdSeed)) ? parseInt(sdSeed) : Math.floor(Math.random() * 2147483647);
+            const actualSeed = !isNaN(parseInt(sdSeed)) && parseInt(sdSeed) !== -1 ? parseInt(sdSeed) : Math.floor(Math.random() * 2147483647);
             const input = { prompt, seed: actualSeed };
             
             if (sdInputImage) {
@@ -2072,6 +2154,20 @@
             const [ratio, setRatio] = useState("1:1");
             const [size, setSize] = useState("1K");
             const [openaiSize, setOpenaiSize] = useState("1024x1024");
+            const [openaiQuality, setOpenaiQuality] = useState("medium");
+            const [openaiCustomW, setOpenaiCustomW] = useState(1024);
+            const [openaiCustomH, setOpenaiCustomH] = useState(1024);
+            const [gpt2RefImages, setGpt2RefImages] = useState([]);
+            const gpt2FileInputRef = useRef(null);
+            const [seedreamSize, setSeedreamSize] = useState("2K");
+            const [seedreamRefImage, setSeedreamRefImage] = useState(null);
+            const seedreamFileInputRef = useRef(null);
+            const [qwenSize, setQwenSize] = useState("1024x1024");
+            const [qwenSeed, setQwenSeed] = useState(-1);
+            const [qwenWatermark, setQwenWatermark] = useState(false);
+            const [qwenStrength, setQwenStrength] = useState(0.85);
+            const [qwenRefImages, setQwenRefImages] = useState([]);
+            const qwenFileInputRef = useRef(null);
             const [batchSize, setBatchSize] = useState(1);
             const [loading, setLoading] = useState(false);
             const [statusMsg, setStatusMsg] = useState("");
@@ -2103,13 +2199,13 @@
             const [mjSpeed, setMjSpeed] = useState("fast");
             const [briaSteps, setBriaSteps] = useState(30);
             const [briaGuidance, setBriaGuidance] = useState(5);
-            const [briaSeed, setBriaSeed] = useState("");
+            const [briaSeed, setBriaSeed] = useState(-1);
             const [reuseModal, setReuseModal] = useState(null);
             const [reuseChecked, setReuseChecked] = useState({});
             const [sdSize, setSdSize] = useState("1:1");
             const [sdSteps, setSdSteps] = useState(28);
             const [sdGuidance, setSdGuidance] = useState(4.5);
-            const [sdSeed, setSdSeed] = useState("");
+            const [sdSeed, setSdSeed] = useState(-1);
             const [sdInputImage, setSdInputImage] = useState(null);
             const [sdPromptStrength, setSdPromptStrength] = useState(0.85);
             const sdFileInputRef = useRef(null);
@@ -2138,6 +2234,8 @@
 
             useEffect(() => {
                 if (provider === "openai") setOpenaiSize((OPENAI_SIZES[model] || ["1024x1024"])[0]);
+                if (provider === "seedream") setSeedreamSize("2K");
+                if (provider === "qwen") setQwenSize("1024x1024");
             }, [model, provider]);
 
             useEffect(() => {
@@ -2268,7 +2366,7 @@
                         generationConfig: config,
                     };
                 }
-                if (p === "openai") return { model, prompt: prompt || "(your prompt)", n: batchSize, size: openaiSize };
+                if (p === "openai") return { model, prompt: prompt || "(your prompt)", n: batchSize, size: openaiSize === "custom" ? `${openaiCustomW}x${openaiCustomH}` : openaiSize, quality: openaiQuality };
                 if (p === "flux") return { model, input: { prompt: prompt || "(your prompt)", width: fluxWidth, height: fluxHeight } };
                 if (p === "bria") {
                     const b = {
@@ -2281,10 +2379,17 @@
                         enhance_image: true,
                     };
                     if (negativePrompt?.trim()) b.negative_prompt = negativePrompt.trim();
-                    if (briaSeed !== "" && !isNaN(parseInt(briaSeed))) b.seed = parseInt(briaSeed);
+                    if (briaSeed !== "" && !isNaN(parseInt(briaSeed)) && parseInt(briaSeed) !== -1) b.seed = parseInt(briaSeed);
                     return b;
                 }
                 if (p === "midjourney") return { model: "midjourney", prompt: prompt || "(your prompt)", speed: mjSpeed };
+                if (p === "seedream") return { model, prompt: prompt || "(your prompt)", size: seedreamSize, response_format: "url", ...(seedreamRefImage ? { image: "[base64 image]" } : {}) };
+                if (p === "qwen") {
+                    const q = { model, prompt: prompt || "(your prompt)", size: qwenSize, response_format: "url", watermark: qwenWatermark };
+                    if (qwenSeed !== -1 && qwenSeed !== "") q.seed = parseInt(qwenSeed);
+                    if (qwenRefImages?.length > 0) q.image = "[base64 image]";
+                    return q;
+                }
                 if (p === "sd") {
                     const input = { prompt: prompt || "(your prompt)" };
                     if (sdInputImage) {
@@ -2296,7 +2401,7 @@
                     if (negativePrompt?.trim()) input.negative_prompt = negativePrompt.trim();
                     if (sdSteps != null) input.num_inference_steps = parseInt(sdSteps);
                     if (sdGuidance != null) input.guidance_scale = parseFloat(sdGuidance);
-                    if (sdSeed !== "" && !isNaN(parseInt(sdSeed))) input.seed = parseInt(sdSeed);
+                    if (!isNaN(parseInt(sdSeed)) && parseInt(sdSeed) !== -1) input.seed = parseInt(sdSeed);
                     return { model, input };
                 }
                 return {};
@@ -2389,7 +2494,9 @@
                 setStatusMsg("generating...");
                 
                 const cfg = {
-                    apiKey, model, prompt, ratio, size, openaiSize, refImages, batchSize,
+                    apiKey, model, prompt, ratio, size, openaiSize, openaiQuality, openaiCustomW, openaiCustomH, gpt2RefImages,
+                    seedreamSize, seedreamRefImage, qwenSize, qwenSeed, qwenWatermark, qwenStrength, qwenRefImages,
+                    refImages, batchSize,
                     negativePrompt, fluxWidth, fluxHeight, briaSteps, briaGuidance, briaSeed, mjSpeed,
                     sdSize, sdSteps, sdGuidance, sdSeed, sdInputImage, sdPromptStrength, signal: controller.signal, setStatusMsg,
                 };
@@ -2413,7 +2520,7 @@
                         const briaResults = await genBria(db, cfg);
                         imgs.push(...briaResults);
                     } else {
-                        const names = { gemini: "gemini", openai: "openai", flux: "flux", sd: "sd" };
+                        const names = { gemini: "gemini", openai: "openai", flux: "flux", sd: "sd", seedream: "seedream", qwen: "qwen" };
                         for (let i = 0; i < batchSize; i++) {
                             if (controller.signal.aborted) break;
                             const n = names[provider] || "model";
@@ -2424,6 +2531,8 @@
                             if (provider === "openai") img = await genOpenAI(db, cfg);
                             if (provider === "flux") img = await genFlux(db, cfg);
                             if (provider === "sd") img = await genSD(db, cfg);
+                            if (provider === "seedream") img = await genSeedream(db, cfg);
+                            if (provider === "qwen") img = await genQwen(db, cfg);
                             if (img) imgs.push(img);
                         }
                     }
@@ -2579,6 +2688,8 @@
                     if (m?.provider === "gemini") setSize(img.size);
                     if (m?.provider === "openai") setOpenaiSize(img.size);
                     if (m?.provider === "sd") setSdSize(img.size);
+                    if (m?.provider === "seedream") setSeedreamSize(img.size);
+                    if (m?.provider === "qwen") setQwenSize(img.size);
                     const [w, h] = (img.size || "").split("x");
                     if (w && h) {
                         setFluxWidth(parseInt(w));
@@ -2684,7 +2795,7 @@
                             <div className="field">
                                 <label className="label">{provider === "midjourney" ? "images to upscale" : "how many"}</label>
                                 <select className="inp" value={batchSize} onChange={(e) => setBatchSize(parseInt(e.target.value))}>
-                                    {[1, 2, 3, 4].map((n) => (
+                                    {[1,2,3,4].map((n) => (
                                         <option key={n} value={n}>
                                             {n} {n === 1 ? "image" : "images"}
                                         </option>
@@ -2719,14 +2830,63 @@
                             )}
 
                             {provider === "openai" && (
-                                <div className="field">
-                                    <label className="label">size</label>
-                                    <select className="inp" value={openaiSize} onChange={(e) => setOpenaiSize(e.target.value)}>
-                                        {(OPENAI_SIZES[model] || ["1024x1024"]).map((s) => (
-                                            <option key={s} value={s}>{s}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                                <>
+                                    <div className="field">
+                                        <label className="label">upload images <span style={{ color: "var(--text3)", fontWeight: 400 }}>img2img, up to 4</span></label>
+                                        <input ref={gpt2FileInputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={async (e) => {
+                                            const files = Array.from(e.target.files || []);
+                                            if (!files.length) return;
+                                            const converted = await Promise.all(files.map((f) => new Promise((res) => {
+                                                const r = new FileReader();
+                                                r.onload = (ev) => res({ dataUrl: ev.target.result, mediaType: f.type });
+                                                r.readAsDataURL(f);
+                                            })));
+                                            setGpt2RefImages((prev) => [...prev, ...converted].slice(0, 4));
+                                            e.target.value = "";
+                                        }} />
+                                        {gpt2RefImages.length > 0 ? (
+                                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
+                                                {gpt2RefImages.map((img, i) => (
+                                                    <div key={i} style={{ position: "relative" }}>
+                                                        <img src={img.dataUrl} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: "var(--r)", border: "1px solid var(--border2)" }} />
+                                                        <button onClick={() => setGpt2RefImages((prev) => prev.filter((_, j) => j !== i))} style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.7)", border: "none", borderRadius: "3px", color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 4px", cursor: "pointer", lineHeight: 1 }}>×</button>
+                                                    </div>
+                                                ))}
+                                                {gpt2RefImages.length < 4 && <button className="btn btn-ghost" style={{ width: 56, height: 56, fontSize: 20, flexShrink: 0 }} onClick={() => gpt2FileInputRef.current.click()}>+</button>}
+                                            </div>
+                                        ) : (
+                                            <button className="btn btn-ghost" style={{ width: "100%" }} onClick={() => gpt2FileInputRef.current.click()}>upload images</button>
+                                        )}
+                                    </div>
+                                    <div className="field">
+                                        <label className="label">resolution</label>
+                                        <select className="inp" value={openaiSize} onChange={(e) => setOpenaiSize(e.target.value)}>
+                                            {(OPENAI_SIZES[model] || ["1024x1024"]).map((s) => (
+                                                <option key={s} value={s}>{s}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    {openaiSize === "custom" && (
+                                        <div className="inp-row">
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1 }}>
+                                                <span style={{ fontSize: "10px", color: "var(--text3)", textTransform: "uppercase" }}>width</span>
+                                                <input type="number" className="inp" min="64" max="4096" step="16" value={openaiCustomW} onChange={(e) => setOpenaiCustomW(parseInt(e.target.value) || 1024)} />
+                                            </div>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1 }}>
+                                                <span style={{ fontSize: "10px", color: "var(--text3)", textTransform: "uppercase" }}>height</span>
+                                                <input type="number" className="inp" min="64" max="4096" step="16" value={openaiCustomH} onChange={(e) => setOpenaiCustomH(parseInt(e.target.value) || 1024)} />
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="field">
+                                        <label className="label">quality</label>
+                                        <select className="inp" value={openaiQuality} onChange={(e) => setOpenaiQuality(e.target.value)}>
+                                            <option value="low">low</option>
+                                            <option value="medium">medium</option>
+                                            <option value="high">high</option>
+                                        </select>
+                                    </div>
+                                </>
                             )}
 
                             {provider === "bria" && (
@@ -2750,8 +2910,8 @@
                                         </div>
                                     </div>
                                     <div className="field">
-                                        <label className="label">seed <span style={{ color: "var(--text3)", fontWeight: 400 }}>optional</span></label>
-                                        <input type="number" className="inp" placeholder="leave blank for random" value={briaSeed} onChange={(e) => setBriaSeed(e.target.value)} />
+                                        <label className="label">seed <span style={{ color: "var(--text3)", fontWeight: 400 }}>-1 for random</span></label>
+                                        <input type="number" className="inp" value={briaSeed} onChange={(e) => setBriaSeed(e.target.value)} />
                                     </div>
                                 </>
                             )}
@@ -2836,8 +2996,8 @@
                                         </div>
                                     </div>
                                     <div className="field">
-                                        <label className="label">seed <span style={{ color: "var(--text3)", fontWeight: 400 }}>optional</span></label>
-                                        <input type="number" className="inp" placeholder="leave blank for random" value={sdSeed} onChange={(e) => setSdSeed(e.target.value)} />
+                                        <label className="label">seed <span style={{ color: "var(--text3)", fontWeight: 400 }}>-1 for random</span></label>
+                                        <input type="number" className="inp" value={sdSeed} onChange={(e) => setSdSeed(e.target.value)} />
                                     </div>
                                 </>
                             )}
@@ -2859,6 +3019,91 @@
                                             <line x1="12" y1="16" x2="12.01" y2="16" />
                                         </svg>
                                         use --ar in your prompt for ratio. batch count controls how many get upscaled
+                                    </div>
+                                </>
+                            )}
+
+                            {provider === "seedream" && (
+                                <>
+                                    <div className="field">
+                                        <label className="label">input image <span style={{ color: "var(--text3)", fontWeight: 400 }}>img2img, optional</span></label>
+                                        <input ref={seedreamFileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            const result = await new Promise((res) => {
+                                                const reader = new FileReader();
+                                                reader.onload = (ev) => res({ dataUrl: ev.target.result, mediaType: file.type });
+                                                reader.readAsDataURL(file);
+                                            });
+                                            setSeedreamRefImage(result);
+                                            e.target.value = "";
+                                        }} />
+                                        {seedreamRefImage ? (
+                                            <div style={{ position: "relative", display: "inline-flex" }}>
+                                                <img src={seedreamRefImage.dataUrl} alt="Uploaded reference" style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: "var(--r)", border: "1px solid var(--border2)" }} />
+                                                <button onClick={() => setSeedreamRefImage(null)} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", border: "none", borderRadius: "var(--r-sm)", color: "#fff", fontSize: 11, fontWeight: 600, padding: "2px 7px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>remove</button>
+                                            </div>
+                                        ) : (
+                                            <button className="btn btn-ghost" style={{ width: "100%" }} onClick={() => seedreamFileInputRef.current.click()}>upload image</button>
+                                        )}
+                                    </div>
+                                    <div className="field">
+                                        <label className="label">size</label>
+                                        <select className="inp" value={seedreamSize} onChange={(e) => setSeedreamSize(e.target.value)}>
+                                            {SEEDREAM_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+
+                            {provider === "qwen" && (
+                                <>
+                                    <div className="field">
+                                        <label className="label">upload images <span style={{ color: "var(--text3)", fontWeight: 400 }}>img2img, up to 4</span></label>
+                                        <input ref={qwenFileInputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={async (e) => {
+                                            const files = Array.from(e.target.files || []);
+                                            if (!files.length) return;
+                                            const converted = await Promise.all(files.map((f) => new Promise((res) => {
+                                                const r = new FileReader();
+                                                r.onload = (ev) => res({ dataUrl: ev.target.result, mediaType: f.type });
+                                                r.readAsDataURL(f);
+                                            })));
+                                            setQwenRefImages((prev) => [...prev, ...converted].slice(0, 4));
+                                            e.target.value = "";
+                                        }} />
+                                        {qwenRefImages.length > 0 ? (
+                                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
+                                                {qwenRefImages.map((img, i) => (
+                                                    <div key={i} style={{ position: "relative" }}>
+                                                        <img src={img.dataUrl} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: "var(--r)", border: "1px solid var(--border2)" }} />
+                                                        <button onClick={() => setQwenRefImages((prev) => prev.filter((_, j) => j !== i))} style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.7)", border: "none", borderRadius: "3px", color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 4px", cursor: "pointer", lineHeight: 1 }}>×</button>
+                                                    </div>
+                                                ))}
+                                                {qwenRefImages.length < 4 && <button className="btn btn-ghost" style={{ width: 56, height: 56, fontSize: 20, flexShrink: 0 }} onClick={() => qwenFileInputRef.current.click()}>+</button>}
+                                            </div>
+                                        ) : (
+                                            <button className="btn btn-ghost" style={{ width: "100%" }} onClick={() => qwenFileInputRef.current.click()}>upload images</button>
+                                        )}
+                                    </div>
+                                    {qwenRefImages.length > 0 && (
+                                        <div className="field">
+                                            <label className="label">strength <span style={{ color: "var(--text3)", fontWeight: 400 }}>{qwenStrength}</span></label>
+                                            <input type="range" min="0" max="1" step="0.01" value={qwenStrength} onChange={(e) => setQwenStrength(parseFloat(e.target.value))} style={{ width: "100%", accentColor: "var(--purple)" }} />
+                                        </div>
+                                    )}
+                                    <div className="field">
+                                        <label className="label">resolution</label>
+                                        <select className="inp" value={qwenSize} onChange={(e) => setQwenSize(e.target.value)}>
+                                            {QWEN_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="field">
+                                        <label className="label">seed <span style={{ color: "var(--text3)", fontWeight: 400 }}>-1 for random</span></label>
+                                        <input type="number" className="inp" value={qwenSeed} onChange={(e) => setQwenSeed(e.target.value)} />
+                                    </div>
+                                    <div className="field" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                                        <label className="label" style={{ marginBottom: 0 }}>watermark</label>
+                                        <input type="checkbox" checked={qwenWatermark} onChange={(e) => setQwenWatermark(e.target.checked)} style={{ accentColor: "var(--purple)", width: 16, height: 16 }} />
                                     </div>
                                 </>
                             )}
