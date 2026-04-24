@@ -1592,6 +1592,7 @@
             { id: "gemini-3-pro-image", label: "Gemini 3 Pro Image", group: "Gemini", provider: "gemini" },
             { id: "gemini-3.1-flash-image-preview", label: "Gemini 3.1 Flash", group: "Gemini", provider: "gemini" },
             { id: "gpt-image-2", label: "GPT Image 2", group: "OpenAI", provider: "openai" },
+            { id: "gpt-image-2-all", label: "GPT Image 2 All", group: "OpenAI", provider: "openai" },
             { id: "midjourney", label: "Midjourney", group: "Midjourney", provider: "midjourney" },
             { id: "bria/image-3.2", label: "Bria 3.2", group: "Bria", provider: "bria" },
             { id: "flux-2-max", label: "Flux 2 Max", group: "Flux", provider: "flux" },
@@ -1605,8 +1606,9 @@
         const MODEL_MAP = Object.fromEntries(MODELS.map((m) => [m.id, m]));
         const OPENAI_SIZES = {
             "gpt-image-2": ["1024x1024", "1024x768", "1024x1536", "1536x1024", "1920x1080", "2560x1440", "3840x2160", "custom"],
+            "gpt-image-2-all": ["1024x1024", "1024x768", "1024x1536", "1536x1024", "1920x1080", "2560x1440", "3840x2160", "custom"],
         };
-        const SEEDREAM_SIZES = ["1K", "2K", "4K"];
+        const SEEDREAM_SIZES = ["2048x2048", "2560x1440", "1440x2560", "3072x2048", "2048x3072", "4096x2304", "2304x4096", "custom"];
         const QWEN_SIZES = ["1024x1024", "1280x720", "720x1280", "1536x1024", "1024x1536", "auto"];
         const BRIA_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"];
         const GEMINI_PRO_RATIOS = ["1:1", "3:2", "2:3", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"];
@@ -1625,6 +1627,22 @@
             if (n < 64) n = 64;
             n = Math.round(n / 16) * 16;
             return Math.min(2048, n);
+        };
+
+        const clampSeedreamDim = (v) => {
+            let n = parseInt(v) || 2048;
+            if (n > 4096) n = 4096;
+            if (n < 1440) n = 1440;
+            n = Math.round(n / 16) * 16;
+            return Math.min(4096, Math.max(1440, n));
+        };
+
+        const clampOpenaiDim = (v) => {
+            let n = parseInt(v) || 1024;
+            if (n > 4096) n = 4096;
+            if (n < 64) n = 64;
+            n = Math.round(n / 16) * 16;
+            return Math.min(4096, Math.max(64, n));
         };
 
         const DB_NAME = "VisionsStudio", STORE = "images";
@@ -1798,14 +1816,15 @@
             }) : null;
         };
 
-        const genSeedream = async (db, { apiKey, model, prompt, seedreamSize, seedreamRefImage, signal }) => {
+        const genSeedream = async (db, { apiKey, model, prompt, seedreamSize, seedreamCustomW, seedreamCustomH, seedreamRefImages, signal }) => {
+            const resolvedSize = seedreamSize === "custom" ? `${seedreamCustomW}x${seedreamCustomH}` : seedreamSize;
             const body = {
                 model,
                 prompt,
-                size: seedreamSize || "2K",
+                size: resolvedSize || "2048x2048",
                 response_format: "url",
             };
-            if (seedreamRefImage) body.image = seedreamRefImage.dataUrl;
+            if (seedreamRefImages?.length > 0) body.image = seedreamRefImages.map((i) => i.dataUrl);
             const res = await fetch("https://api.cometapi.com/v1/images/generations", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
@@ -1820,7 +1839,7 @@
             const item = data?.data?.[0];
             if (!item) return null;
             const src = item.url ? await urlToDataUrl(item.url) : item.b64_json ? `data:image/png;base64,${item.b64_json}` : null;
-            return src ? saveImg(db, src, prompt, { model, modelLabel: "Seedream 5 Lite", provider: "seedream", size: seedreamSize }) : null;
+            return src ? saveImg(db, src, prompt, { model, modelLabel: "Seedream 5 Lite", provider: "seedream", size: resolvedSize }) : null;
         };
 
         const genQwen = async (db, { apiKey, model, prompt, qwenSize, qwenSeed, qwenWatermark, qwenStrength, qwenRefImages, signal }) => {
@@ -2159,8 +2178,10 @@
             const [openaiCustomH, setOpenaiCustomH] = useState(1024);
             const [gpt2RefImages, setGpt2RefImages] = useState([]);
             const gpt2FileInputRef = useRef(null);
-            const [seedreamSize, setSeedreamSize] = useState("2K");
-            const [seedreamRefImage, setSeedreamRefImage] = useState(null);
+            const [seedreamSize, setSeedreamSize] = useState("2048x2048");
+            const [seedreamCustomW, setSeedreamCustomW] = useState(2048);
+            const [seedreamCustomH, setSeedreamCustomH] = useState(2048);
+            const [seedreamRefImages, setSeedreamRefImages] = useState([]);
             const seedreamFileInputRef = useRef(null);
             const [qwenSize, setQwenSize] = useState("1024x1024");
             const [qwenSeed, setQwenSeed] = useState(-1);
@@ -2234,7 +2255,7 @@
 
             useEffect(() => {
                 if (provider === "openai") setOpenaiSize((OPENAI_SIZES[model] || ["1024x1024"])[0]);
-                if (provider === "seedream") setSeedreamSize("2K");
+                if (provider === "seedream") setSeedreamSize("2048x2048");
                 if (provider === "qwen") setQwenSize("1024x1024");
             }, [model, provider]);
 
@@ -2383,7 +2404,12 @@
                     return b;
                 }
                 if (p === "midjourney") return { model: "midjourney", prompt: prompt || "(your prompt)", speed: mjSpeed };
-                if (p === "seedream") return { model, prompt: prompt || "(your prompt)", size: seedreamSize, response_format: "url", ...(seedreamRefImage ? { image: "[base64 image]" } : {}) };
+                if (p === "seedream") {
+                    const resolvedSize = seedreamSize === "custom" ? `${seedreamCustomW}x${seedreamCustomH}` : seedreamSize;
+                    const s = { model, prompt: prompt || "(your prompt)", size: resolvedSize, response_format: "url" };
+                    if (seedreamRefImages?.length > 0) s.image = `[${seedreamRefImages.length} base64 image(s)]`;
+                    return s;
+                }
                 if (p === "qwen") {
                     const q = { model, prompt: prompt || "(your prompt)", size: qwenSize, response_format: "url", watermark: qwenWatermark };
                     if (qwenSeed !== "" && parseInt(qwenSeed) !== -1 && !isNaN(parseInt(qwenSeed))) q.seed = parseInt(qwenSeed);
@@ -2495,7 +2521,7 @@
                 
                 const cfg = {
                     apiKey, model, prompt, ratio, size, openaiSize, openaiQuality, openaiCustomW, openaiCustomH, gpt2RefImages,
-                    seedreamSize, seedreamRefImage, qwenSize, qwenSeed, qwenWatermark, qwenStrength, qwenRefImages,
+                    seedreamSize, seedreamCustomW, seedreamCustomH, seedreamRefImages, qwenSize, qwenSeed, qwenWatermark, qwenStrength, qwenRefImages,
                     refImages, batchSize,
                     negativePrompt, fluxWidth, fluxHeight, briaSteps, briaGuidance, briaSeed, mjSpeed,
                     sdSize, sdSteps, sdGuidance, sdSeed, sdInputImage, sdPromptStrength, signal: controller.signal, setStatusMsg,
@@ -2870,11 +2896,11 @@
                                         <div className="inp-row">
                                             <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1 }}>
                                                 <span style={{ fontSize: "10px", color: "var(--text3)", textTransform: "uppercase" }}>width</span>
-                                                <input type="number" className="inp" min="64" max="4096" step="16" value={openaiCustomW} onChange={(e) => setOpenaiCustomW(parseInt(e.target.value) || 1024)} />
+                                                <input type="number" className="inp" min="64" max="4096" step="16" value={openaiCustomW} onChange={(e) => setOpenaiCustomW(Math.min(4096, parseInt(e.target.value) || 1024))} onBlur={() => setOpenaiCustomW(clampOpenaiDim(openaiCustomW))} />
                                             </div>
                                             <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1 }}>
                                                 <span style={{ fontSize: "10px", color: "var(--text3)", textTransform: "uppercase" }}>height</span>
-                                                <input type="number" className="inp" min="64" max="4096" step="16" value={openaiCustomH} onChange={(e) => setOpenaiCustomH(parseInt(e.target.value) || 1024)} />
+                                                <input type="number" className="inp" min="64" max="4096" step="16" value={openaiCustomH} onChange={(e) => setOpenaiCustomH(Math.min(4096, parseInt(e.target.value) || 1024))} onBlur={() => setOpenaiCustomH(clampOpenaiDim(openaiCustomH))} />
                                             </div>
                                         </div>
                                     )}
@@ -3026,33 +3052,64 @@
                             {provider === "seedream" && (
                                 <>
                                     <div className="field">
-                                        <label className="label">input image <span style={{ color: "var(--text3)", fontWeight: 400 }}>img2img, optional</span></label>
-                                        <input ref={seedreamFileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
-                                            const file = e.target.files?.[0];
-                                            if (!file) return;
-                                            const result = await new Promise((res) => {
-                                                const reader = new FileReader();
-                                                reader.onload = (ev) => res({ dataUrl: ev.target.result, mediaType: file.type });
-                                                reader.readAsDataURL(file);
-                                            });
-                                            setSeedreamRefImage(result);
+                                        <label className="label">upload images <span style={{ color: "var(--text3)", fontWeight: 400 }}>img2img, up to 10</span></label>
+                                        <input ref={seedreamFileInputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={async (e) => {
+                                            const files = Array.from(e.target.files || []);
+                                            if (!files.length) return;
+                                            const converted = await Promise.all(files.map((f) => new Promise((res) => {
+                                                const r = new FileReader();
+                                                r.onload = (ev) => res({ dataUrl: ev.target.result, mediaType: f.type });
+                                                r.readAsDataURL(f);
+                                            })));
+                                            setSeedreamRefImages((prev) => [...prev, ...converted].slice(0, 10));
                                             e.target.value = "";
                                         }} />
-                                        {seedreamRefImage ? (
-                                            <div style={{ position: "relative", display: "inline-flex" }}>
-                                                <img src={seedreamRefImage.dataUrl} alt="Uploaded reference" style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: "var(--r)", border: "1px solid var(--border2)" }} />
-                                                <button onClick={() => setSeedreamRefImage(null)} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", border: "none", borderRadius: "var(--r-sm)", color: "#fff", fontSize: 11, fontWeight: 600, padding: "2px 7px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>remove</button>
+                                        {seedreamRefImages.length > 0 ? (
+                                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
+                                                {seedreamRefImages.map((img, i) => (
+                                                    <div key={i} style={{ position: "relative" }}>
+                                                        <img src={img.dataUrl} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: "var(--r)", border: "1px solid var(--border2)" }} />
+                                                        <button onClick={() => setSeedreamRefImages((prev) => prev.filter((_, j) => j !== i))} style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.7)", border: "none", borderRadius: "3px", color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 4px", cursor: "pointer", lineHeight: 1 }}>×</button>
+                                                    </div>
+                                                ))}
+                                                {seedreamRefImages.length < 10 && <button className="btn btn-ghost" style={{ width: 56, height: 56, fontSize: 20, flexShrink: 0 }} onClick={() => seedreamFileInputRef.current.click()}>+</button>}
                                             </div>
                                         ) : (
-                                            <button className="btn btn-ghost" style={{ width: "100%" }} onClick={() => seedreamFileInputRef.current.click()}>upload image</button>
+                                            <button className="btn btn-ghost" style={{ width: "100%" }} onClick={() => seedreamFileInputRef.current.click()}>upload images</button>
                                         )}
                                     </div>
                                     <div className="field">
-                                        <label className="label">size</label>
+                                        <label className="label">resolution</label>
                                         <select className="inp" value={seedreamSize} onChange={(e) => setSeedreamSize(e.target.value)}>
                                             {SEEDREAM_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
                                         </select>
                                     </div>
+                                    {seedreamSize === "custom" && (() => {
+                                        const px = seedreamCustomW * seedreamCustomH;
+                                        const MIN_PX = 3686400;
+                                        const MAX_PX = 10404496;
+                                        const pxOk = px >= MIN_PX && px <= MAX_PX;
+                                        return (
+                                            <div className="field">
+                                                <label className="label">custom resolution</label>
+                                                <div className="inp-row">
+                                                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1 }}>
+                                                        <span style={{ fontSize: "10px", color: "var(--text3)", textTransform: "uppercase" }}>width</span>
+                                                        <span style={{ fontSize: "10px", color: "var(--text3)" }}>1440–4096 pixels</span>
+                                                        <input type="number" className="inp" min="1440" max="4096" step="16" value={seedreamCustomW} onChange={(e) => setSeedreamCustomW(Math.min(4096, Math.max(1440, parseInt(e.target.value) || 2048)))} onBlur={() => setSeedreamCustomW(clampSeedreamDim(seedreamCustomW))} />
+                                                    </div>
+                                                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1 }}>
+                                                        <span style={{ fontSize: "10px", color: "var(--text3)", textTransform: "uppercase" }}>height</span>
+                                                        <span style={{ fontSize: "10px", color: "var(--text3)" }}>1440–4096 pixels</span>
+                                                        <input type="number" className="inp" min="1440" max="4096" step="16" value={seedreamCustomH} onChange={(e) => setSeedreamCustomH(Math.min(4096, Math.max(1440, parseInt(e.target.value) || 2048)))} onBlur={() => setSeedreamCustomH(clampSeedreamDim(seedreamCustomH))} />
+                                                    </div>
+                                                </div>
+                                                <div style={{ fontSize: "11px", color: pxOk ? "var(--text3)" : "var(--red, #f87171)", marginTop: 4 }}>
+                                                    {px.toLocaleString()} pixels • min {MIN_PX.toLocaleString()} • max {MAX_PX.toLocaleString()}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </>
                             )}
 
