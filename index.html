@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-title" content="Visions Studio" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="referrer" content="no-referrer" />
-    <meta name="theme-color" content="#06060c" />
+    <meta name="theme-color" content="#070710" />
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -45,7 +45,7 @@
                 if (combo) {
                     for (const opt of Array.from(combo.options)) {
                         if (opt.value === "no" || opt.value === "auto" || opt.value === "") {
-                            try { combo.remove(opt.index); } catch (e) {}
+                            try { combo.removeChild(opt); } catch (e) {}
                         }
                     }
                 }
@@ -1778,10 +1778,10 @@
             padding: 6px;
             z-index: 500;
             min-width: 160px;
-            animation: slideDown-in 0.18s var(--ease) both;
+            animation: slideDownIn 0.18s var(--ease) both;
         }
 
-        @keyframes slideDown-in {
+        @keyframes slideDownIn {
             from { opacity: 0; transform: translateY(-6px) scale(0.97); }
             to   { opacity: 1; transform: none; }
         }
@@ -2492,7 +2492,7 @@
             const [theme, setTheme] = useState(() => localStorage.getItem("vs_theme") || "dark");
             const notifAudioRef = useRef(null);
             const [reuseClosing, setReuseClosing] = useState(false);
-            const [translateLang, setTranslateLang] = useState("en");
+            const [translateLang, setTranslateLang] = useState(() => localStorage.getItem("vs_lang") || "en");
             const [translateOpen, setTranslateOpen] = useState(false);
 
             const closeReuse = () => {
@@ -2539,13 +2539,14 @@
             }, [theme]);
 
             useEffect(() => {
-                document.documentElement.setAttribute("data-theme", theme);
-            }, []);
+                localStorage.setItem("vs_lang", translateLang);
+            }, [translateLang]);
+
 
             const cleanCombo = (combo) => {
                 for (const opt of Array.from(combo.options)) {
                     if (opt.value === "no" || opt.value === "auto" || opt.value === "") {
-                        try { combo.remove(opt.index); } catch (e) {}
+                        try { combo.removeChild(opt); } catch (e) {}
                     }
                 }
             };
@@ -2579,6 +2580,11 @@
                     }
                 }, 500);
             };
+
+            useEffect(() => {
+                const saved = localStorage.getItem("vs_lang");
+                if (saved && saved !== "en") applyTranslate(saved);
+            }, []);
 
             const handleTranslateLang = (lang) => {
                 setTranslateLang(lang);
@@ -2658,12 +2664,6 @@
                 if (e.button !== 0) return;
                 e.preventDefault();
                 lbDragRef.current = { active: true, startX: e.clientX, startY: e.clientY, originX: panX, originY: panY, moved: false };
-                setLbDragging(true);
-            };
-
-            const lbTouchStart = (e) => {
-                const t = e.touches[0];
-                lbDragRef.current = { active: true, startX: t.clientX, startY: t.clientY, originX: panX, originY: panY, moved: false };
                 setLbDragging(true);
             };
 
@@ -3191,7 +3191,7 @@
                             
                             <div className="field">
                                 <label className="label">api key</label>
-                                <input type="password" className="inp" placeholder="paste your cometapi key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} autocomplete="off" spellCheck={false} />
+                                <input type="password" className="inp" placeholder="paste your cometapi key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="off" spellCheck={false} />
                             </div>
                             
                             <div className="field">
@@ -3897,6 +3897,9 @@
                                     alt="Expanded view"
                                     draggable="false"
                                     onMouseDown={lbMouseDown}
+                                    onTouchStart={(e) => { const t = e.touches[0]; lbDragRef.current = { active: true, startX: t.clientX, startY: t.clientY, originX: panX, originY: panY, moved: false }; setLbDragging(true); }}
+                                    onTouchMove={(e) => { if (!lbDragRef.current.active) return; const t = e.touches[0]; const dx = t.clientX - lbDragRef.current.startX; const dy = t.clientY - lbDragRef.current.startY; if (Math.abs(dx) > 4 || Math.abs(dy) > 4) lbDragRef.current.moved = true; setPanX(lbDragRef.current.originX + dx); setPanY(lbDragRef.current.originY + dy); }}
+                                    onTouchEnd={() => { const had = lbDragRef.current.moved; lbDragRef.current.active = false; lbDragRef.current.moved = false; lbDragRef.current.justDragged = had; setLbDragging(false); }}
                                     style={{
                                         transform: `translate(${panX}px, ${panY}px) scale(${lightboxZoom}) rotate(${lightboxRotation}deg) scaleX(${lightboxFlipH ? -1 : 1}) scaleY(${lightboxFlipV ? -1 : 1})`
                                     }}
