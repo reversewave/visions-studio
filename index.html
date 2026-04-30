@@ -10,17 +10,60 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Visions Studio" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="referrer" content="no-referrer" />
     <meta name="theme-color" content="#06060c" />
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script>
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: "en",
+                autoDisplay: false,
+            }, "google_translate_element");
+        }
+    </script>
+    <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async defer></script>
+    <script>
+        // Kill any Google Translate UI flashes (toolbar, banner, body offset)
+        // before they're visible to the user
+        (function () {
+            const hide = (el) => {
+                if (!el) return;
+                if (el.style.display === "none") return; 
+    
+                el.style.setProperty("display", "none", "important");
+                el.style.setProperty("visibility", "hidden", "important");
+            };
+            const suppress = () => {
+                hide(document.querySelector(".goog-te-banner-frame"));
+                hide(document.querySelector("#goog-gt-tt"));
+                const body = document.body;
+                if (body && body.style.top && body.style.top !== "0px") {
+                    body.style.top = "0px";
+                }
+                // Remove any GT-injected option from visible selects that aren't ours
+                document.querySelectorAll("select:not(.goog-te-combo):not(.translate-select):not(.inp)").forEach(sel => {
+                    Array.from(sel.options).forEach(opt => {
+                        if (opt.value === "no" || opt.value === "auto") opt.remove();
+                    });
+                });
+            };
+            const obs = new MutationObserver(suppress);
+            document.addEventListener("DOMContentLoaded", () => {
+                obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["style"] });
+                suppress();
+            });
+        })();
+    </script>
     
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
     
     <style>
-        :root {
+        :root, [data-theme="dark"] {
             --bg: #06060c;
             --surface: #0b0b14;
             --surf2: #10101e;
@@ -49,6 +92,45 @@
             --ease2: cubic-bezier(0.4, 0, 0.2, 1);
             --grad: linear-gradient(135deg, var(--purple), var(--pink));
         }
+
+        [data-theme="light"] {
+            --bg: #f4f3f8;
+            --surface: #ffffff;
+            --surf2: #f0eff7;
+            --surf3: #e8e7f2;
+            --surf4: #dddcea;
+            --border: rgba(0, 0, 0, 0.07);
+            --border2: rgba(0, 0, 0, 0.11);
+            --border3: rgba(0, 0, 0, 0.18);
+            --purple: #7c3aed;
+            --purple-h: #6d28d9;
+            --purple-d: rgba(124, 58, 237, 0.1);
+            --purple-r: rgba(124, 58, 237, 0.16);
+            --pink: #db2777;
+            --pink-d: rgba(219, 39, 119, 0.07);
+            --pink-b: rgba(219, 39, 119, 0.14);
+            --red: #dc2626;
+            --red-d: rgba(220, 38, 38, 0.07);
+            --red-b: rgba(220, 38, 38, 0.13);
+            --text: #16151f;
+            --text2: #5c5975;
+            --text3: #9b99b0;
+            --r: 8px;
+            --r-sm: 5px;
+            --r-lg: 12px;
+            --ease: cubic-bezier(0.22, 1, 0.36, 1);
+            --ease2: cubic-bezier(0.4, 0, 0.2, 1);
+            --grad: linear-gradient(135deg, var(--purple), var(--pink));
+        }
+
+        [data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.18); }
+        [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(124,58,237,0.32); }
+        [data-theme="light"] ::placeholder { color: var(--text3); }
+        [data-theme="light"] .inp, [data-theme="light"] select.inp { color: var(--text); background: var(--surf2); }
+        [data-theme="light"] option { background: var(--surface); color: var(--text); }
+        [data-theme="light"] .json-box { background: var(--surf3); color: var(--text2); }
+        [data-theme="light"] .drawer-overlay { background: rgba(0,0,0,0.25); }
+        [data-theme="light"] .confirm-overlay { background: rgba(0,0,0,0.35); }
 
         * {
             user-select: none;
@@ -1582,6 +1664,86 @@
                 height: 20px;
             }
         }
+
+        /* ── google translate – hide native UI, we drive it from React ── */
+        #google_translate_element { display: none !important; }
+        .goog-te-banner-frame { display: none !important; }
+        .skiptranslate > iframe { display: none !important; }
+        body { top: 0 !important; }
+        .goog-te-combo { position: absolute !important; opacity: 0 !important; pointer-events: none !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
+
+        /* ── privacy note ── */
+        .privacy-note {
+            display: flex;
+            align-items: flex-start;
+            gap: 7px;
+            padding: 8px 10px;
+            background: var(--purple-d);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            font-size: 11px;
+            color: var(--text3);
+            line-height: 1.45;
+        }
+        .privacy-note svg { flex-shrink: 0; margin-top: 1px; color: var(--purple); opacity: 0.7; }
+
+        /* ── custom translate row ── */
+        .translate-row {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+        }
+        .translate-row-label {
+            font-size: 10.5px;
+            color: var(--text3);
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+        }
+        .translate-select {
+            flex: 1;
+            appearance: none;
+            background: var(--surf2);
+            border: 1px solid var(--border2);
+            border-radius: var(--r-sm);
+            color: var(--text2);
+            font-size: 11px;
+            font-family: "DM Sans", sans-serif;
+            padding: 4px 8px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+        .translate-select:hover { border-color: var(--border3); }
+        .translate-select option { background: var(--surf2); color: var(--text); }
+        .translate-reset {
+            background: none;
+            border: 1px solid var(--border2);
+            border-radius: var(--r-sm);
+            color: var(--text3);
+            font-size: 11px;
+            font-family: "DM Sans", sans-serif;
+            padding: 4px 7px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: border-color 0.2s, color 0.2s;
+        }
+        .translate-reset:hover { border-color: var(--border3); color: var(--text2); }
+
+        /* ── theme toggle btn ── */
+        .theme-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text3);
+            padding: 0;
+            display: flex;
+            align-items: center;
+            transition: color 0.2s var(--ease2);
+        }
+        .theme-btn:hover { color: var(--text2); }
     </style>
 </head>
 <body>
@@ -2235,8 +2397,10 @@
             const drawerCloseTimeout = useRef(null);
             const [removingIds, setRemovingIds] = useState([]);
             const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("vs_sound") !== "false");
+            const [theme, setTheme] = useState(() => localStorage.getItem("vs_theme") || "dark");
             const notifAudioRef = useRef(null);
             const [reuseClosing, setReuseClosing] = useState(false);
+            const [translateLang, setTranslateLang] = useState("en");
 
             const closeReuse = () => {
                 setReuseClosing(true);
@@ -2275,6 +2439,45 @@
             useEffect(() => {
                 localStorage.setItem("vs_sound", soundEnabled);
             }, [soundEnabled]);
+
+            useEffect(() => {
+                localStorage.setItem("vs_theme", theme);
+                document.documentElement.setAttribute("data-theme", theme);
+            }, [theme]);
+
+            useEffect(() => {
+                // apply saved theme on mount
+                document.documentElement.setAttribute("data-theme", theme);
+            }, []);
+
+            const applyTranslate = (lang, attempts = 0) => {
+                const sel = document.querySelector(".goog-te-combo");
+                if (!sel) {
+                    // Google Translate loads async — retry up to 20 times over 2s
+                    if (attempts < 20) setTimeout(() => applyTranslate(lang, attempts + 1), 100);
+                    return;
+                }
+                sel.value = lang;
+                sel.dispatchEvent(new Event("change"));
+                // Some locales need a second nudge after a short delay
+                setTimeout(() => {
+                    const sel2 = document.querySelector(".goog-te-combo");
+                    if (sel2 && sel2.value !== lang) {
+                        sel2.value = lang;
+                        sel2.dispatchEvent(new Event("change"));
+                    }
+                }, 300);
+            };
+
+            const handleTranslateLang = (lang) => {
+                setTranslateLang(lang);
+                applyTranslate(lang);
+            };
+
+            const handleTranslateReset = () => {
+                setTranslateLang("en");
+                applyTranslate("en");
+            };
 
             useEffect(() => {
                 const unlockAudio = () => {
@@ -2430,6 +2633,22 @@
                     if (!isNaN(parseInt(sdSeed)) && parseInt(sdSeed) !== -1) input.seed = parseInt(sdSeed);
                     return { model, input };
                 }
+                return {};
+            };
+
+            const buildPreviewMeta = () => {
+                const p = provider;
+                if (p === "gemini") return { url: `https://api.cometapi.com/v1beta/models/${model}:generateContent`, contentType: "application/json" };
+                if (p === "openai") return { url: gpt2RefImages.length > 0 ? "https://api.cometapi.com/v1/images/edits" : "https://api.cometapi.com/v1/images/generations", contentType: gpt2RefImages.length > 0 ? "multipart/form-data" : "application/json" };
+                if (p === "flux") return { url: `https://api.cometapi.com/flux/v1/${model}`, contentType: "application/json", note: "polls /flux/v1/get_result?id={taskId} until ready" };
+                if (p === "bria") return { url: "https://api.cometapi.com/bria/text-to-image", contentType: "application/json" };
+                if (p === "midjourney") {
+                    const sub = mjSpeed === "turbo" ? "mj-turbo" : mjSpeed === "relax" ? "mj" : "mj-fast";
+                    return { url: `https://api.cometapi.com/${sub}/mj/submit/imagine`, contentType: "application/json", note: "polls /mj/task/{id}/fetch until complete, then upscales" };
+                }
+                if (p === "seedream") return { url: "https://api.cometapi.com/v1/images/generations", contentType: "application/json" };
+                if (p === "qwen") return { url: "https://api.cometapi.com/v1/images/generations", contentType: "application/json" };
+                if (p === "sd") return { url: `https://api.cometapi.com/replicate/v1/models/${model}/predictions`, contentType: "application/json", note: "Prefer: wait=55 — polls prediction.urls.get if not sync" };
                 return {};
             };
 
@@ -2768,39 +2987,56 @@
 
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
                                 <div className="wordmark">Visions Studio</div>
-                                <button
-                                    onClick={() => setSoundEnabled((p) => !p)}
-                                    title={soundEnabled ? "mute sounds" : "unmute sounds"}
-                                    style={{
-                                        background: "none",
-                                        border: "none",
-                                        cursor: "pointer",
-                                        color: soundEnabled ? "var(--purple)" : "var(--text3)",
-                                        padding: 0,
-                                        display: "flex",
-                                        alignItems: "center",
-                                        transition: "color 0.2s var(--ease2)",
-                                    }}
-                                >
-                                    {soundEnabled ? (
-                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-                                            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                                        </svg>
-                                    ) : (
-                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                                            <line x1="23" y1="9" x2="17" y2="15" />
-                                            <line x1="17" y1="9" x2="23" y2="15" />
-                                        </svg>
-                                    )}
-                                </button>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <button className="theme-btn" onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} title={theme === "dark" ? "switch to light mode" : "switch to dark mode"}>
+                                        {theme === "dark" ? (
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="5" />
+                                                <line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
+                                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                                                <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
+                                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                                            </svg>
+                                        ) : (
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                    <button
+                                        onClick={() => setSoundEnabled((p) => !p)}
+                                        title={soundEnabled ? "mute sounds" : "unmute sounds"}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            cursor: "pointer",
+                                            color: soundEnabled ? "var(--purple)" : "var(--text3)",
+                                            padding: 0,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            transition: "color 0.2s var(--ease2)",
+                                        }}
+                                    >
+                                        {soundEnabled ? (
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                                                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                                            </svg>
+                                        ) : (
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                                                <line x1="23" y1="9" x2="17" y2="15" />
+                                                <line x1="17" y1="9" x2="23" y2="15" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                             
                             <div className="field">
                                 <label className="label">api key</label>
-                                <input type="password" className="inp" placeholder="paste your cometapi key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+                                <input type="password" className="inp" placeholder="paste your cometapi key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} autocomplete="off" spellCheck={false} />
                             </div>
                             
                             <div className="field">
@@ -3223,14 +3459,72 @@
                                 </button>
                                 <div className={`json-body${jsonOpen ? " open" : ""}`}>
                                     <div className="json-inner">
-                                        <div className="json-box">{JSON.stringify(buildPreviewBody(), null, 2)}</div>
-                                        <button className="info-copy-btn" style={{ marginTop: 6 }} onClick={() => navigator.clipboard.writeText(JSON.stringify(buildPreviewBody(), null, 2))}>copy</button>
+                                        {(() => {
+                                            const meta = buildPreviewMeta();
+                                            const bodyStr = JSON.stringify(buildPreviewBody(), null, 2);
+                                            return (
+                                                <>
+                                                    {meta.url && (
+                                                        <div style={{ marginBottom: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                                                            <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+                                                                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--purple)", fontFamily: "monospace", background: "var(--purple-d)", padding: "2px 6px", borderRadius: 4, flexShrink: 0, marginTop: 1 }}>POST</span>
+                                                                <span style={{ fontSize: 11, color: "var(--text2)", fontFamily: "monospace", wordBreak: "break-all", lineHeight: 1.5 }}>{meta.url}</span>
+                                                            </div>
+                                                            <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingLeft: 2 }}>
+                                                                <span style={{ fontSize: 10.5, color: "var(--text3)", fontFamily: "monospace" }}>content-type: {meta.contentType}</span>
+                                                                {meta.note && <span style={{ fontSize: 10.5, color: "var(--text3)", fontFamily: "monospace", lineHeight: 1.4 }}>{meta.note}</span>}
+                                                            </div>
+                                                            <div style={{ height: 1, background: "var(--border)", marginBottom: 2 }} />
+                                                        </div>
+                                                    )}
+                                                    <div className="json-box">{bodyStr}</div>
+                                                    <button className="info-copy-btn" style={{ marginTop: 6 }} onClick={() => navigator.clipboard.writeText(bodyStr)}>copy</button>
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
                         <div className="sidebar-foot">
+                            <div className="privacy-note">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                </svg>
+                                <span>your api key and images stay on this device only. nothing is sent to or stored by visions studio.</span>
+                            </div>
+                            <div className="translate-row">
+                                <span className="translate-row-label">translate</span>
+                                <div id="google_translate_element" style={{ display: "none" }} />
+                                <select
+                                    className="translate-select"
+                                    value={translateLang}
+                                    onChange={(e) => handleTranslateLang(e.target.value)}
+                                >
+                                    <option value="en">english (default)</option>
+                                    <option value="ar">arabic</option>
+                                    <option value="bn">bengali</option>
+                                    <option value="zh-CN">chinese (simplified)</option>
+                                    <option value="zh-TW">chinese (traditional)</option>
+                                    <option value="fr">french</option>
+                                    <option value="de">german</option>
+                                    <option value="hi">hindi</option>
+                                    <option value="it">italian</option>
+                                    <option value="ja">japanese</option>
+                                    <option value="ko">korean</option>
+                                    <option value="pt">portuguese</option>
+                                    <option value="ru">russian</option>
+                                    <option value="es">spanish</option>
+                                    <option value="sw">swahili</option>
+                                    <option value="th">thai</option>
+                                    <option value="tr">turkish</option>
+                                    <option value="vi">vietnamese</option>
+                                </select>
+                                {translateLang !== "en" && (
+                                    <button className="translate-reset" onClick={handleTranslateReset}>reset</button>
+                                )}
+                            </div>
                             {error && (
                                 <div className={`error-box ${error.type === "api" ? "error-api" : "error-app"}`}>
                                     <ErrIco type={error.type} />
