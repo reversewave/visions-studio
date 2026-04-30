@@ -27,35 +27,43 @@
     </script>
     <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async defer></script>
     <script>
-        // Kill any Google Translate UI flashes (toolbar, banner, body offset)
-        // before they're visible to the user
         (function () {
-            const hide = (el) => {
+            const forceHide = (el) => {
                 if (!el) return;
-                if (el.style.display === "none") return; 
-    
                 el.style.setProperty("display", "none", "important");
                 el.style.setProperty("visibility", "hidden", "important");
             };
+
             const suppress = () => {
-                hide(document.querySelector(".goog-te-banner-frame"));
-                hide(document.querySelector("#goog-gt-tt"));
-                const body = document.body;
-                if (body && body.style.top && body.style.top !== "0px") {
-                    body.style.top = "0px";
+                forceHide(document.querySelector(".goog-te-banner-frame"));
+                forceHide(document.querySelector("#goog-gt-tt"));
+                forceHide(document.querySelector(".goog-tooltip"));
+                if (document.body && document.body.style.top && document.body.style.top !== "0px") {
+                    document.body.style.top = "0px";
                 }
-                // Remove any GT-injected option from visible selects that aren't ours
-                document.querySelectorAll("select:not(.goog-te-combo):not(.translate-select):not(.inp)").forEach(sel => {
-                    Array.from(sel.options).forEach(opt => {
-                        if (opt.value === "no" || opt.value === "auto") opt.remove();
-                    });
-                });
+                const combo = document.querySelector(".goog-te-combo");
+                if (combo) {
+                    for (const opt of Array.from(combo.options)) {
+                        if (opt.value === "no" || opt.value === "auto" || opt.value === "") {
+                            try { combo.remove(opt.index); } catch (e) {}
+                        }
+                    }
+                }
             };
+
             const obs = new MutationObserver(suppress);
             document.addEventListener("DOMContentLoaded", () => {
-                obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["style"] });
+                obs.observe(document.body, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    attributeFilter: ["style", "class"],
+                });
                 suppress();
             });
+            setTimeout(suppress, 500);
+            setTimeout(suppress, 1500);
+            setTimeout(suppress, 3000);
         })();
     </script>
     
@@ -64,73 +72,79 @@
     
     <style>
         :root, [data-theme="dark"] {
-            --bg: #06060c;
-            --surface: #0b0b14;
-            --surf2: #10101e;
-            --surf3: #171728;
-            --surf4: #1e1e34;
-            --border: rgba(255, 255, 255, 0.04);
-            --border2: rgba(255, 255, 255, 0.07);
-            --border3: rgba(255, 255, 255, 0.12);
-            --purple: #8b5cf6;
-            --purple-h: #7c4ef0;
-            --purple-d: rgba(139, 92, 246, 0.1);
-            --purple-r: rgba(139, 92, 246, 0.18);
-            --pink: #ec4899;
-            --pink-d: rgba(236, 72, 153, 0.08);
-            --pink-b: rgba(236, 72, 153, 0.18);
-            --red: #ff0051;
-            --red-d: rgba(255, 0, 81, 0.08);
-            --red-b: rgba(255, 0, 81, 0.15);
-            --text: #e2e2f0;
-            --text2: #7e7e9a;
-            --text3: #43435e;
+            --bg: #070710;
+            --surface: #0d0d1a;
+            --surf2: #121225;
+            --surf3: #181830;
+            --surf4: #1f1f3c;
+            --border: rgba(255, 255, 255, 0.045);
+            --border2: rgba(255, 255, 255, 0.08);
+            --border3: rgba(255, 255, 255, 0.14);
+            --purple: #a78bfa;
+            --purple-h: #9270f5;
+            --purple-d: rgba(167, 139, 250, 0.12);
+            --purple-r: rgba(167, 139, 250, 0.22);
+            --pink: #f472b6;
+            --pink-d: rgba(244, 114, 182, 0.09);
+            --pink-b: rgba(244, 114, 182, 0.2);
+            --red: #fb7185;
+            --red-d: rgba(251, 113, 133, 0.1);
+            --red-b: rgba(251, 113, 133, 0.18);
+            --text: #ededf8;
+            --text2: #8585a8;
+            --text3: #45455e;
             --r: 8px;
             --r-sm: 5px;
             --r-lg: 12px;
             --ease: cubic-bezier(0.22, 1, 0.36, 1);
             --ease2: cubic-bezier(0.4, 0, 0.2, 1);
             --grad: linear-gradient(135deg, var(--purple), var(--pink));
+            --theme-transition: background-color 0.38s var(--ease2), color 0.38s var(--ease2), border-color 0.38s var(--ease2), box-shadow 0.38s var(--ease2);
         }
 
         [data-theme="light"] {
-            --bg: #f4f3f8;
-            --surface: #ffffff;
-            --surf2: #f0eff7;
-            --surf3: #e8e7f2;
-            --surf4: #dddcea;
-            --border: rgba(0, 0, 0, 0.07);
-            --border2: rgba(0, 0, 0, 0.11);
-            --border3: rgba(0, 0, 0, 0.18);
+            --bg: #f0eff8;
+            --surface: #faf9ff;
+            --surf2: #eceaf8;
+            --surf3: #e3e0f4;
+            --surf4: #d7d3ed;
+            --border: rgba(80, 60, 140, 0.09);
+            --border2: rgba(80, 60, 140, 0.13);
+            --border3: rgba(80, 60, 140, 0.22);
             --purple: #7c3aed;
             --purple-h: #6d28d9;
             --purple-d: rgba(124, 58, 237, 0.1);
-            --purple-r: rgba(124, 58, 237, 0.16);
+            --purple-r: rgba(124, 58, 237, 0.18);
             --pink: #db2777;
-            --pink-d: rgba(219, 39, 119, 0.07);
-            --pink-b: rgba(219, 39, 119, 0.14);
-            --red: #ff0051;
-            --red-d: rgba(220, 38, 38, 0.07);
-            --red-b: rgba(220, 38, 38, 0.13);
-            --text: #16151f;
-            --text2: #5c5975;
-            --text3: #9b99b0;
+            --pink-d: rgba(219, 39, 119, 0.08);
+            --pink-b: rgba(219, 39, 119, 0.16);
+            --red: #e11d48;
+            --red-d: rgba(225, 29, 72, 0.08);
+            --red-b: rgba(225, 29, 72, 0.16);
+            --text: #13111f;
+            --text2: #4e4a6e;
+            --text3: #8e8aaa;
             --r: 8px;
             --r-sm: 5px;
             --r-lg: 12px;
             --ease: cubic-bezier(0.22, 1, 0.36, 1);
             --ease2: cubic-bezier(0.4, 0, 0.2, 1);
             --grad: linear-gradient(135deg, var(--purple), var(--pink));
+            --theme-transition: background-color 0.38s var(--ease2), color 0.38s var(--ease2), border-color 0.38s var(--ease2), box-shadow 0.38s var(--ease2);
         }
 
-        [data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.18); }
-        [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(124,58,237,0.32); }
+        [data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.2); }
+        [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(124,58,237,0.36); }
         [data-theme="light"] ::placeholder { color: var(--text3); }
-        [data-theme="light"] .inp, [data-theme="light"] select.inp { color: var(--text); background: var(--surf2); }
+        [data-theme="light"] .inp,
+        [data-theme="light"] select.inp { color: var(--text); background: var(--surf2); }
         [data-theme="light"] option { background: var(--surface); color: var(--text); }
         [data-theme="light"] .json-box { background: var(--surf3); color: var(--text2); }
-        [data-theme="light"] .drawer-overlay { background: rgba(0,0,0,0.25); }
-        [data-theme="light"] .confirm-overlay { background: rgba(0,0,0,0.35); }
+        [data-theme="light"] .drawer-overlay { background: rgba(10, 5, 30, 0.22); }
+        [data-theme="light"] .confirm-overlay { background: rgba(10, 5, 30, 0.30); }
+        [data-theme="light"] .flash-warn { color: var(--purple); }
+        [data-theme="light"] .error-api .error-detail { color: color-mix(in srgb, var(--purple) 70%, var(--text2)); }
+        [data-theme="light"] .error-app .error-detail { color: color-mix(in srgb, var(--pink) 70%, var(--text2)); }
 
         * {
             user-select: none;
@@ -161,6 +175,24 @@
             overflow: hidden;
             line-height: 1.5;
             -webkit-font-smoothing: antialiased;
+            transition: var(--theme-transition);
+        }
+
+        .sidebar,
+        .sidebar-body,
+        .sidebar-foot,
+        .main,
+        .drawer,
+        .tab-bar,
+        .inp,
+        .modal,
+        .reuse-modal,
+        .img-card,
+        .json-box,
+        .info-prompt-box,
+        .drawer-foot,
+        .drawer-preview {
+            transition: var(--theme-transition);
         }
 
         ::-webkit-scrollbar {
@@ -393,7 +425,7 @@
             border: 1px solid var(--purple-r);
             border-radius: var(--r);
             font-size: 12px;
-            color: rgba(180, 150, 255, 0.85);
+            color: var(--purple);
             line-height: 1.45;
         }
 
@@ -563,7 +595,7 @@
         }
 
         .error-api .error-detail {
-            color: rgba(160, 130, 240, 0.75);
+            color: color-mix(in srgb, var(--purple) 60%, var(--text3));
         }
 
         .error-app {
@@ -576,7 +608,7 @@
         }
 
         .error-app .error-detail {
-            color: rgba(236, 72, 153, 0.65);
+            color: color-mix(in srgb, var(--pink) 60%, var(--text3));
         }
 
         .error-title {
@@ -1665,12 +1697,32 @@
             }
         }
 
-        /* ── google translate – hide native UI, we drive it from React ── */
-        #google_translate_element { display: none !important; }
-        .goog-te-banner-frame { display: none !important; }
+        /* ── google translate ── */
+        #google_translate_element {
+            position: fixed !important;
+            top: -9999px !important;
+            left: -9999px !important;
+            width: 1px !important;
+            height: 1px !important;
+            overflow: hidden !important;
+            pointer-events: none !important;
+        }
+        .goog-te-banner-frame,
+        .goog-te-balloon-frame,
+        #goog-gt-tt,
+        .goog-tooltip,
+        .goog-tooltip-content { display: none !important; }
         .skiptranslate > iframe { display: none !important; }
-        body { top: 0 !important; }
-        .goog-te-combo { position: absolute !important; opacity: 0 !important; pointer-events: none !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
+        body { top: 0px !important; }
+        .goog-te-combo {
+            position: absolute !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            width: 1px !important;
+            height: 1px !important;
+            overflow: hidden !important;
+            clip: rect(0,0,0,0) !important;
+        }
 
         /* ── privacy note ── */
         .privacy-note {
@@ -1687,50 +1739,83 @@
         }
         .privacy-note svg { flex-shrink: 0; margin-top: 1px; color: var(--purple); opacity: 0.7; }
 
-        /* ── custom translate row ── */
-        .translate-row {
+        /* ── translate popover ── */
+        .translate-popover-wrap {
+            position: relative;
             display: flex;
             align-items: center;
-            gap: 7px;
-            padding-top: 10px;
-            border-top: 1px solid var(--border);
         }
-        .translate-row-label {
-            font-size: 10.5px;
+        .translate-globe-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
             color: var(--text3);
-            font-weight: 600;
-            letter-spacing: 0.04em;
-            white-space: nowrap;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            transition: color 0.2s var(--ease2);
+            position: relative;
         }
-        .translate-select {
-            flex: 1;
-            appearance: none;
+        .translate-globe-btn:hover { color: var(--text2); }
+        .translate-globe-btn.active { color: var(--purple); }
+        .translate-active-dot {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--purple);
+        }
+        .translate-popover {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
             background: var(--surf2);
             border: 1px solid var(--border2);
-            border-radius: var(--r-sm);
-            color: var(--text2);
-            font-size: 11px;
-            font-family: "DM Sans", sans-serif;
-            padding: 4px 8px;
-            cursor: pointer;
-            transition: border-color 0.2s;
-            outline: none;
+            border-radius: var(--r);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+            padding: 6px;
+            z-index: 500;
+            min-width: 160px;
+            animation: slideDown-in 0.18s var(--ease) both;
         }
-        .translate-select:hover { border-color: var(--border3); }
-        .translate-select option { background: var(--surf2); color: var(--text); }
-        .translate-reset {
-            background: none;
-            border: 1px solid var(--border2);
-            border-radius: var(--r-sm);
+
+        @keyframes slideDown-in {
+            from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+            to   { opacity: 1; transform: none; }
+        }
+        .translate-popover-title {
+            font-size: 10px;
+            font-weight: 700;
             color: var(--text3);
-            font-size: 11px;
-            font-family: "DM Sans", sans-serif;
-            padding: 4px 7px;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: border-color 0.2s, color 0.2s;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 3px 6px 6px;
         }
-        .translate-reset:hover { border-color: var(--border3); color: var(--text2); }
+        .translate-lang-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .translate-lang-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: "DM Sans", sans-serif;
+            font-size: 12px;
+            color: var(--text2);
+            text-align: left;
+            padding: 5px 8px;
+            border-radius: var(--r-sm);
+            transition: background 0.12s, color 0.12s;
+            white-space: nowrap;
+        }
+        .translate-lang-btn:hover { background: var(--surf3); color: var(--text); }
+        .translate-lang-btn.selected { color: var(--purple); font-weight: 600; background: var(--purple-d); }
+        .translate-divider { height: 1px; background: var(--border); margin: 4px 0; }
 
         /* ── theme toggle btn ── */
         .theme-btn {
@@ -1747,7 +1832,14 @@
     </style>
 </head>
 <body>
+    <div id="google_translate_element"></div>
     <div id="root"></div>
+    <script>
+        (function () {
+            const t = localStorage.getItem("vs_theme") || "dark";
+            document.documentElement.setAttribute("data-theme", t);
+        })();
+    </script>
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
         const MODELS = [
@@ -2401,6 +2493,7 @@
             const notifAudioRef = useRef(null);
             const [reuseClosing, setReuseClosing] = useState(false);
             const [translateLang, setTranslateLang] = useState("en");
+            const [translateOpen, setTranslateOpen] = useState(false);
 
             const closeReuse = () => {
                 setReuseClosing(true);
@@ -2446,36 +2539,56 @@
             }, [theme]);
 
             useEffect(() => {
-                // apply saved theme on mount
                 document.documentElement.setAttribute("data-theme", theme);
             }, []);
+
+            const cleanCombo = (combo) => {
+                for (const opt of Array.from(combo.options)) {
+                    if (opt.value === "no" || opt.value === "auto" || opt.value === "") {
+                        try { combo.remove(opt.index); } catch (e) {}
+                    }
+                }
+            };
+
+            useEffect(() => {
+                if (!translateOpen) return;
+                const close = (e) => {
+                    if (!e.target.closest(".translate-popover-wrap")) setTranslateOpen(false);
+                };
+                document.addEventListener("mousedown", close);
+                return () => document.removeEventListener("mousedown", close);
+            }, [translateOpen]);
 
             const applyTranslate = (lang, attempts = 0) => {
                 const sel = document.querySelector(".goog-te-combo");
                 if (!sel) {
-                    // Google Translate loads async — retry up to 20 times over 2s
-                    if (attempts < 20) setTimeout(() => applyTranslate(lang, attempts + 1), 100);
+                    if (attempts < 30) setTimeout(() => applyTranslate(lang, attempts + 1), 150);
                     return;
                 }
+                cleanCombo(sel);
                 sel.value = lang;
-                sel.dispatchEvent(new Event("change"));
-                // Some locales need a second nudge after a short delay
+                sel.dispatchEvent(new Event("change", { bubbles: true }));
+                sel.dispatchEvent(new Event("input",  { bubbles: true }));
                 setTimeout(() => {
                     const sel2 = document.querySelector(".goog-te-combo");
-                    if (sel2 && sel2.value !== lang) {
+                    if (!sel2) return;
+                    cleanCombo(sel2);
+                    if (sel2.value !== lang) {
                         sel2.value = lang;
-                        sel2.dispatchEvent(new Event("change"));
+                        sel2.dispatchEvent(new Event("change", { bubbles: true }));
                     }
-                }, 300);
+                }, 500);
             };
 
             const handleTranslateLang = (lang) => {
                 setTranslateLang(lang);
+                setTranslateOpen(false);
                 applyTranslate(lang);
             };
 
             const handleTranslateReset = () => {
                 setTranslateLang("en");
+                setTranslateOpen(false);
                 applyTranslate("en");
             };
 
@@ -2662,9 +2775,9 @@
                     const a = document.createElement("a");
                     a.href = url;
                     a.download = `visions-backup-${new Date().toISOString().split("T")[0]}.json`;
-                    document.body.appendChild(a); // Appended for better browser compatibility
+                    document.body.appendChild(a);
                     a.click();
-                    document.body.removeChild(a); // Cleanup
+                    document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                 };
             };
@@ -2988,6 +3101,48 @@
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
                                 <div className="wordmark">Visions Studio</div>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <div className="translate-popover-wrap">
+                                        <button
+                                            className={`translate-globe-btn${translateOpen ? " active" : ""}`}
+                                            title="translate page"
+                                            onClick={() => setTranslateOpen(o => !o)}
+                                        >
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="10" />
+                                                <line x1="2" y1="12" x2="22" y2="12" />
+                                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                                            </svg>
+                                            {translateLang !== "en" && <span className="translate-active-dot" />}
+                                        </button>
+                                        {translateOpen && (
+                                            <div className="translate-popover" onClick={e => e.stopPropagation()}>
+                                                <div className="translate-popover-title">language</div>
+                                                <div className="translate-lang-list">
+                                                    {translateLang !== "en" && (
+                                                        <>
+                                                            <button className="translate-lang-btn selected" onClick={handleTranslateReset}>✕ reset to english</button>
+                                                            <div className="translate-divider" />
+                                                        </>
+                                                    )}
+                                                    {[
+                                                        ["ar","arabic"],["bn","bengali"],["zh-CN","chinese (simplified)"],
+                                                        ["zh-TW","chinese (traditional)"],["fr","french"],["de","german"],
+                                                        ["hi","hindi"],["it","italian"],["ja","japanese"],["ko","korean"],
+                                                        ["pt","portuguese"],["ru","russian"],["es","spanish"],["sw","swahili"],
+                                                        ["th","thai"],["tr","turkish"],["vi","vietnamese"],
+                                                    ].map(([code, label]) => (
+                                                        <button
+                                                            key={code}
+                                                            className={`translate-lang-btn${translateLang === code ? " selected" : ""}`}
+                                                            onClick={() => handleTranslateLang(code)}
+                                                        >
+                                                            {label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                     <button className="theme-btn" onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} title={theme === "dark" ? "switch to light mode" : "switch to dark mode"}>
                                         {theme === "dark" ? (
                                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3494,37 +3649,7 @@
                                 </svg>
                                 <span>your api key and images stay on this device only. nothing is sent to or stored by visions studio.</span>
                             </div>
-                            <div className="translate-row">
-                                <span className="translate-row-label">translate</span>
-                                <div id="google_translate_element" style={{ display: "none" }} />
-                                <select
-                                    className="translate-select"
-                                    value={translateLang}
-                                    onChange={(e) => handleTranslateLang(e.target.value)}
-                                >
-                                    <option value="en">english (default)</option>
-                                    <option value="ar">arabic</option>
-                                    <option value="bn">bengali</option>
-                                    <option value="zh-CN">chinese (simplified)</option>
-                                    <option value="zh-TW">chinese (traditional)</option>
-                                    <option value="fr">french</option>
-                                    <option value="de">german</option>
-                                    <option value="hi">hindi</option>
-                                    <option value="it">italian</option>
-                                    <option value="ja">japanese</option>
-                                    <option value="ko">korean</option>
-                                    <option value="pt">portuguese</option>
-                                    <option value="ru">russian</option>
-                                    <option value="es">spanish</option>
-                                    <option value="sw">swahili</option>
-                                    <option value="th">thai</option>
-                                    <option value="tr">turkish</option>
-                                    <option value="vi">vietnamese</option>
-                                </select>
-                                {translateLang !== "en" && (
-                                    <button className="translate-reset" onClick={handleTranslateReset}>reset</button>
-                                )}
-                            </div>
+
                             {error && (
                                 <div className={`error-box ${error.type === "api" ? "error-api" : "error-app"}`}>
                                     <ErrIco type={error.type} />
