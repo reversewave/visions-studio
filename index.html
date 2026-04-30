@@ -2943,13 +2943,8 @@
                     .filter((img) => selectedIds.includes(img.id))
                     .forEach((img, i) => {
                         setTimeout(() => {
-                            const a = document.createElement("a");
-                            a.href = img.src;
-                            a.download = `vision-${Math.random().toString(36).substring(2, 10)}.png`;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                        }, i * 200);
+                            saveAsPng(img.src, `vision-${Math.random().toString(36).substring(2, 10)}.png`);
+                        }, i * 300);
                     });
             };
 
@@ -2989,14 +2984,31 @@
                 setLastId(id);
             };
 
-            const downloadImg = (img, e) => {
+            const saveAsPng = (imgSrc, filename) => {
+                const image = new Image();
+                image.onload = () => {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = image.naturalWidth;
+                    canvas.height = image.naturalHeight;
+                    canvas.getContext("2d").drawImage(image, 0, 0);
+                    canvas.toBlob((blob) => {
+                        if (!blob) return;
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }, "image/png");
+                };
+                image.src = imgSrc;
+            };
+
+                        const downloadImg = (img, e) => {
                 if (e) e.stopPropagation();
-                const a = document.createElement("a");
-                a.href = img.src;
-                a.download = `vision-${Math.random().toString(36).substring(2, 10)}.png`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                saveAsPng(img.src, `vision-${Math.random().toString(36).substring(2, 10)}.png`);
             };
 
             const copyPrompt = (text, e) => {
